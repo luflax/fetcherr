@@ -93,12 +93,13 @@ dependencies = [
 
 [[package]]
 name = "fetcherr"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "http-body-util",
  "serde",
  "serde_json",
+ "socket2",
  "tokio",
  "tower",
  "tracing",

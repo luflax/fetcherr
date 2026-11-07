@@ -1,7 +1,7 @@
 mod config;
 mod routes;
 
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use tokio::net::TcpListener;
@@ -26,13 +26,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
+    let port = config.port;
     let state = AppState {
         config: Arc::new(config),
     };
 
-    let listener = TcpListener::bind(addr).await?;
-    tracing::info!("fetcherr listening on {addr}");
+    let listener = bind_listener(port)?;
+    tracing::info!("fetcherr listening on {}", listener.local_addr()?);
 
     axum::serve(listener, routes::router(state))
         .with_graceful_shutdown(shutdown_signal())
@@ -40,6 +40,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("fetcherr stopped");
     Ok(())
+}
+
+/// Binds a dual-stack `[::]` socket so the API answers on both IPv6 and IPv4.
+/// `homeassistant.local` resolves to IPv6 first via mDNS, so IPv4-only listening is not enough.
+/// Falls back to `0.0.0.0` when IPv6 is unavailable in the container.
+fn bind_listener(port: u16) -> std::io::Result<TcpListener> {
+    match bind_socket(SocketAddr::from((Ipv6Addr::UNSPECIFIED, port)), true) {
+        Ok(listener) => Ok(listener),
+        Err(err) => {
+            tracing::warn!("IPv6 bind failed ({err}), falling back to IPv4 only");
+            bind_socket(SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)), false)
+        }
+    }
+}
+
+fn bind_socket(addr: SocketAddr, dual_stack: bool) -> std::io::Result<TcpListener> {
+    use socket2::{Domain, Protocol, Socket, Type};
+
+    let socket = Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP))?;
+    if dual_stack {
+        socket.set_only_v6(false)?;
+    }
+    socket.set_reuse_address(true)?;
+    socket.set_nonblocking(true)?;
+    socket.bind(&addr.into())?;
+    socket.listen(1024)?;
+    TcpListener::from_std(socket.into())
 }
 
 /// Resolves on SIGINT (Ctrl+C) or SIGTERM (sent by Docker / the HA Supervisor on stop).
