@@ -1,5 +1,5 @@
 name: Fetcherr
-version: "0.1.0"
+version: "0.1.1"
 slug: fetcherr
 description: Backend API that aggregates external and Home Assistant add-on APIs
 url: https://github.com/luflax/fetcherr
