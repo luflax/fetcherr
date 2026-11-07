@@ -1,0 +1,20 @@
+<form id="indexer-card" class="card settings-card"
+      hx-post="settings/indexer" hx-target="this" hx-swap="outerHTML">
+  <h2>Indexer <span class="muted">Prowlarr</span></h2>
+  <label class="field">URL
+    <input class="input" type="url" name="url" value="{{ settings.url }}" placeholder="http://prowlarr:9696" required>
+  </label>
+  <label class="field">API key
+    <input class="input" type="password" name="api_key" autocomplete="off"
+           placeholder="{% if settings.has_api_key %}•••••••• (unchanged){% else %}Settings → General → API Key{% endif %}">
+  </label>
+  <div class="field">Default categories
+    {{ categories|safe }}
+  </div>
+  <div class="card-actions">
+    <button class="button" type="button"
+            hx-post="settings/indexer/test" hx-include="closest form" hx-target="#indexer-test" hx-swap="outerHTML">Test</button>
+    <button class="button primary" type="submit">Save</button>
+    <span id="indexer-test"></span>
+  </div>
+</form>

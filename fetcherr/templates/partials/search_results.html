@@ -1,0 +1,38 @@
+{% if let Some(error) = error %}
+<p class="notice error">{{ error }}</p>
+{% else if rows.is_empty() %}
+<p class="empty">No releases match.</p>
+{% else %}
+<p class="result-count">{{ rows.len() }} releases</p>
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Title</th><th>Indexer</th><th class="num">Age</th><th class="num">Size</th>
+        <th class="num">Peers</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="title">
+          {% if let Some(url) = row.info_url %}
+          <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ row.title }}</a>
+          {% else %}{{ row.title }}{% endif %}
+        </td>
+        <td>{{ row.indexer }}</td>
+        <td class="num">{{ row.age }}</td>
+        <td class="num">{{ row.size }}</td>
+        <td class="num"><span class="seeders">{{ row.seeders }}</span> / {{ row.leechers }}</td>
+        <td class="action">
+          <form hx-post="downloads" hx-swap="outerHTML">
+            <input type="hidden" name="release_id" value="{{ row.release_id }}">
+            <button class="button small" type="submit">Download</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}

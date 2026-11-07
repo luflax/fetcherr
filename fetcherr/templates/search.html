@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Search</h1>
+</div>
+
+<form class="card filters"
+      hx-get="search/results" hx-target="#results" hx-indicator="#search-busy"
+      {% if !form.query.is_empty() %}hx-trigger="submit, load"{% endif %}>
+  <div class="filters-main">
+    <input class="input grow" type="search" name="query" value="{{ form.query }}"
+           placeholder="Title, year, quality…" autofocus>
+    <button class="button primary" type="submit">Search</button>
+  </div>
+  <div class="filters-extra">
+    {{ categories|safe }}
+    <label class="field small">Min seeders
+      <input class="input" type="number" min="0" name="min_seeders" value="{{ form.min_seeders }}">
+    </label>
+    <label class="field small">Min size (GB)
+      <input class="input" type="number" min="0" step="0.1" name="min_size_gb" value="{{ form.min_size_gb }}">
+    </label>
+    <label class="field small">Max size (GB)
+      <input class="input" type="number" min="0" step="0.1" name="max_size_gb" value="{{ form.max_size_gb }}">
+    </label>
+    <label class="field small">Sort by
+      <select class="input" name="sort">
+        <option value="seeders" {% if form.sort == "seeders" %}selected{% endif %}>Seeders</option>
+        <option value="size" {% if form.sort == "size" %}selected{% endif %}>Size</option>
+        <option value="age" {% if form.sort == "age" %}selected{% endif %}>Newest</option>
+      </select>
+    </label>
+  </div>
+</form>
+
+<div id="search-busy" class="busy">Searching indexers…</div>
+<section id="results">
+  <p class="empty">Search your indexers to find releases.</p>
+</section>
+{% endblock %}

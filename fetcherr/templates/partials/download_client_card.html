@@ -1,0 +1,28 @@
+<form id="download-client-card" class="card settings-card"
+      hx-post="settings/download-client" hx-target="this" hx-swap="outerHTML">
+  <h2>Download client <span class="muted">qBittorrent</span></h2>
+  <label class="field">URL
+    <input class="input" type="url" name="url" value="{{ settings.url }}" placeholder="http://qbittorrent:8080" required>
+  </label>
+  <div class="field-row">
+    <label class="field">Username
+      <input class="input" type="text" name="username" value="{{ settings.username }}" autocomplete="off">
+    </label>
+    <label class="field">Password
+      <input class="input" type="password" name="password" autocomplete="off"
+             placeholder="{% if settings.has_password %}•••••••• (unchanged){% endif %}">
+    </label>
+  </div>
+  <label class="field">Default root folder
+    <input class="input" type="text" name="root_folder" value="{{ settings.root_folder }}" placeholder="/downloads">
+  </label>
+  <label class="field small">Progress refresh (ms)
+    <input class="input" type="number" name="poll_interval_ms" min="250" max="60000" step="250" value="{{ settings.poll_interval_ms }}">
+  </label>
+  <div class="card-actions">
+    <button class="button" type="button"
+            hx-post="settings/download-client/test" hx-include="closest form" hx-target="#download-client-test" hx-swap="outerHTML">Test</button>
+    <button class="button primary" type="submit">Save</button>
+    <span id="download-client-test"></span>
+  </div>
+</form>

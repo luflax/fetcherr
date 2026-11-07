@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="{{ layout.base_href }}">
+  <title>{% block title %}Fetcherr{% endblock %} · Fetcherr</title>
+  <link rel="stylesheet" href="static/app.css?v={{ layout.version }}">
+  <script src="static/htmx.min.js?v={{ layout.version }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16" /></svg>
+      <span>Fetcherr</span>
+    </a>
+    <form class="quick-search" action="./" method="get" role="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m20 20-4.5-4.5" /></svg>
+      <input type="search" name="query" placeholder="Search releases…" aria-label="Search releases">
+    </form>
+    <a class="topbar-link" href="docs/" target="_blank" rel="noopener">API</a>
+  </header>
+
+  <nav class="sidebar" aria-label="Main">
+    <a href="./" class="{% if layout.active == "search" %}active{% endif %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m20 20-4.5-4.5" /></svg>
+      Search
+    </a>
+    <a href="downloads" class="{% if layout.active == "downloads" %}active{% endif %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16" /></svg>
+      Downloads
+    </a>
+    <a href="settings" class="{% if layout.active == "settings" %}active{% endif %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9 7 7m10 10 2.1 2.1M4.9 19.1 7 17m10-10 2.1-2.1" /></svg>
+      Settings
+    </a>
+  </nav>
+
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

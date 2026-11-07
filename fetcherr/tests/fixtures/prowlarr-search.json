@@ -1,0 +1,116 @@
+[
+  {
+    "guid": "magnet:?xt=urn:btih:D12CF502B1FE28D78E8123AA03A531A7E841C1A0&dn=Voyager-13.5-debian-amd64.iso&tr=http%3a%2f%2ftracker.opentrackr.org%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.auctor.tv%3a6969%2fannounce&tr=udp%3a%2f%2fopentracker.i2p.rocks%3a6969%2fannounce&tr=https%3a%2f%2fopentracker.i2p.rocks%3a443%2fannounce&tr=udp%3a%2f%2fopen.demonii.com%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.openbittorrent.com%3a6969%2fannounce&tr=http%3a%2f%2ftracker.openbittorrent.com%3a80%2fannounce&tr=udp%3a%2f%2fopen.stealth.si%3a80%2fannounce&tr=udp%3a%2f%2ftracker.torrent.eu.org%3a451%2fannounce&tr=udp%3a%2f%2ftracker.moeking.me%3a6969%2fannounce&tr=udp%3a%2f%2fexplodie.org%3a6969%2fannounce&tr=udp%3a%2f%2fexodus.desync.com%3a6969%2fannounce&tr=udp%3a%2f%2fuploads.gamecoast.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker1.bt.moack.co.kr%3a80%2fannounce&tr=udp%3a%2f%2ftracker.tiny-vps.com%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.theoks.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.skyts.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker-udp.gbitt.info%3a80%2fannounce&tr=udp%3a%2f%2fopen.tracker.ink%3a6969%2fannounce&tr=udp%3a%2f%2fmovies.zsw.ca%3a6969%2fannounce",
+    "age": 13,
+    "ageHours": 322.1801726176111,
+    "ageMinutes": 19330.810357058333,
+    "size": 4402341478,
+    "grabs": 24,
+    "indexerId": 1,
+    "indexer": "LinuxTracker",
+    "title": "Voyager-13.5-debian-amd64.iso",
+    "sortTitle": "voyager 13 5 debian amd64 iso",
+    "imdbId": 0,
+    "tmdbId": 0,
+    "tvdbId": 0,
+    "tvMazeId": 0,
+    "publishDate": "2026-10-25T07:00:00Z",
+    "infoUrl": "https://linuxtracker.org/torrents/d12cf502b1fe28d78e8123aa03a531a7e841c1a0/",
+    "indexerFlags": [
+      "freeleech"
+    ],
+    "categories": [
+      {
+        "id": 4020,
+        "name": "PC/ISO",
+        "subCategories": []
+      },
+      {
+        "id": 102153,
+        "subCategories": []
+      }
+    ],
+    "magnetUrl": "http://localhost:9696/1/download?apikey=0000000000000000000000000000test&link=eEZ1Rm5jTGt4NjBYUHNHMWlHQlFuQmJuRGxmVEVZYytHOEN0M1htVmFqemUxVXlTekJtNkJpRjdtRmZ4NlY2U3RKUDVHUmU1bEwxUHBXRXJaRWhMeFQ3SVg5UHAvd21LOVFpMUZUOWxLemxSNS9HRFU5MTNQNkxTQWlxNk9HazNnR2Y3ZWtYakdaUVVGSmhEWXNSTCtFcmoxcXF2S3VXYmNEMWQ1bnF1Qk5XUFNlRHpjN01kbW9iQk9BRE0razlzUGJJcFNheEg0Z2dmNU40TnJlWm9YODQweGYrZEZCenFPVEV2RngrcUFEZkJrNlJZSXMvWi9FUVdlcmhIOWVEdTlicjRiU3N4UXJOSjE4NURLelQ3eEhVNnlXQ1BHeUtiaHRiMXJZWmdCRHJtbm1iRkxpUEZSdlljQytOWlhBcms3c08ydUdpYnlRYTdkSXVMenJpUEIzM0FZNUpPZStaazREampBdzlOL3pVSkFPcUhDc1YrNzExSXpRUXNCeks2SmhIWExyM25DbEhTQXlWM0RRamZWbFBRYmlsR3dMeGEyY1hoc0owQXZZZkt4bmNlbitOODBMUzVEMHB4TXYvRmFZMnYvMGVsOENVZUlVV0EydlVoRHdSRXg4Y1ViZVlSMUQ0VU5lT3BFcXlkL2RPajRBaC96TU93RHhEcHhlUDVieXplY1VrYXRnL05CK1dEK0dSeWEyUEZESlVSRElkdVg1aTNCVnVZMFd5SEtmcUdVU1Z1MkRoRWdzOHM0OW1zVmpybzVPK0k1TWFYeFh6UFNrM0lhNjU2cEtpSnZxWlBCbFJOOWRnUFZkZ3U5TmxDYmZtTmNHVEZqSXhoMWpUUXJWZnpkQk5jTFRWaWxxRzdYSVdnWWxFeEhLYStEUGY4N1J3cDV6L0NidFV5LzhVMVhKTTdCVS9XckUvUWszeEtFdUFkd3VxNThOSUFWR09OOGtrbG9UeFRjOXRHY2E5TFFVYjc2NTNqOEtWOVBHYUNMSVN6ZUEveU5ZSG54Zi9iNjlNOVpFaUNNV1lmU1c0V3ZYaFNYdCtyZFd3VUFORDFMcm5qd0JGYjk4YzI5T1dTOU9oT0paNW0zNVczc3FRZVA1VjBVU1pMaHNmTDlBUXQrS2x2Mzh5WmJneUF0OHJaSkJIUzE3STVsM2Rjcjl0UGNvcDVwU1g4UlJ2ZGtNbGY5cWtmSFc4QkVZaTFvSEFpN3g4TjBWTFJBUXZtblZwRUdycXdPc283R2tGSTIxK29qMDE3U1ovcnRoVDJ6OXZjZDNpY2IyMmpkd1dSb3ZxYzFyaTVEV0dMYUJ5Y2FJZ3g2Zk1odEVnZmdSTEszS3kxYi9wbS9FYlZKcXl1V3dUV0JOL0plRk5TV1dZcjEwV1U4ckRjang3R2hLWEo3ZFpBcEtMVmsrKy9UUEYveTZhY3FqTGd5eFFQbElBdHNDdlhNUU5wUWVJLzBWbW9yV3VSQkZ5NldmSEYwMWNtWWhlTEJLVElWQTlMdDRsS053SWtUZy9EdmlsUVRvNThBRUdORFovS2k5bmZBSU8rVzFuUmZtdkdZNFIwVjgvU2VhS3V6Q2tya0crZE1GUFN5UHFINHdKUThqb2ZlRmgxZ296ZzBnREhUZ2dVbUE4dnQwNlBqcjIvUFFobTEzMEZFQVZUd3hNTUZIUm1RQnVtc1FJN1hicW0yUkZhdTBIRUl1ajZuczlMT2V6TmNXdWY3SHBmL2hjcmxpQzNVTXlUVHYxdzVIeXVlUFJpaC9UZVdMYXN3OG9mempZc3JJZEFuVHdJamJoajFhYUhucGNIZW1QTDk5K3FpZ1F2QTRZM05IZjZvM0psQVNTaENGcm5BcVNZRWQ1TEl2NlV1WmpONGtpeFU3Q1Jua0hHazgxTXRqNlRlSjhrTGNWZ3ZxNTErcUU5NG9hUnBUc1pra0dITmxJOUNKR29jaWJsejZFMjRvbGlJNmhxTkZmaWd4djFUU2hnV053SlhZVlpBaTl2Wnk3WGhYODJtVm0zQm1zNFkxREtVd1QxMUgwK2RqcXpvbEdjRTdBVzQ3NjRva1BoMm04UG5wQTlOQT09&file=Voyager-13.5-debian-amd64.iso",
+    "infoHash": "d12cf502b1fe28d78e8123aa03a531a7e841c1a0",
+    "seeders": 8,
+    "leechers": 0,
+    "protocol": "torrent",
+    "fileName": "Voyager-13.5-debian-amd64.iso.torrent"
+  },
+  {
+    "guid": "magnet:?xt=urn:btih:17EE96026E323127A07E343254FC65A30ABB0379&dn=Voyager-13.3-debian-amd64.iso&tr=http%3a%2f%2ftracker.opentrackr.org%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.auctor.tv%3a6969%2fannounce&tr=udp%3a%2f%2fopentracker.i2p.rocks%3a6969%2fannounce&tr=https%3a%2f%2fopentracker.i2p.rocks%3a443%2fannounce&tr=udp%3a%2f%2fopen.demonii.com%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.openbittorrent.com%3a6969%2fannounce&tr=http%3a%2f%2ftracker.openbittorrent.com%3a80%2fannounce&tr=udp%3a%2f%2fopen.stealth.si%3a80%2fannounce&tr=udp%3a%2f%2ftracker.torrent.eu.org%3a451%2fannounce&tr=udp%3a%2f%2ftracker.moeking.me%3a6969%2fannounce&tr=udp%3a%2f%2fexplodie.org%3a6969%2fannounce&tr=udp%3a%2f%2fexodus.desync.com%3a6969%2fannounce&tr=udp%3a%2f%2fuploads.gamecoast.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker1.bt.moack.co.kr%3a80%2fannounce&tr=udp%3a%2f%2ftracker.tiny-vps.com%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.theoks.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.skyts.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker-udp.gbitt.info%3a80%2fannounce&tr=udp%3a%2f%2fopen.tracker.ink%3a6969%2fannounce&tr=udp%3a%2f%2fmovies.zsw.ca%3a6969%2fannounce",
+    "age": 13,
+    "ageHours": 322.18017265355553,
+    "ageMinutes": 19330.810359213334,
+    "size": 4617089843,
+    "grabs": 18,
+    "indexerId": 1,
+    "indexer": "LinuxTracker",
+    "title": "Voyager-13.3-debian-amd64.iso",
+    "sortTitle": "voyager 13 3 debian amd64 iso",
+    "imdbId": 0,
+    "tmdbId": 0,
+    "tvdbId": 0,
+    "tvMazeId": 0,
+    "publishDate": "2026-10-25T07:00:00Z",
+    "infoUrl": "https://linuxtracker.org/torrents/17ee96026e323127a07e343254fc65a30abb0379/",
+    "indexerFlags": [
+      "freeleech"
+    ],
+    "categories": [
+      {
+        "id": 4020,
+        "name": "PC/ISO",
+        "subCategories": []
+      },
+      {
+        "id": 102153,
+        "subCategories": []
+      }
+    ],
+    "magnetUrl": "http://localhost:9696/1/download?apikey=0000000000000000000000000000test&link=NjFvQjh0WFc2enZxMjJEUTVXaDBiajRrc1N0M2tDaFdQSFFXZUMzUWR3VWdIMHRjTjErL0dJL3p0NG9WVzhuYldRaWRWaEk5NXRSaWgvMGliZHNtV2VqRUk0SUk1Z1E1U1V2N3ViZVhKWEU1blpqbFJ1VERDazBBS3lRRGh6RGNvRUxOZ2tXV2l2VE8wRnJzeTJSdVNxaHZQV09FRytzMTNWcVhqSEpINTdsc2ZCcTJKanp6aGJKYVNmei9ZbmthSjFNWkN6RTZORjUveWpKcTdXNFVaem8zYURCY04wNDgwZWNrUDhBRXY3OXFSSGtVc2twRmJ1cFZZZDhQUHhqa3Jvd0JJMUZWNDhoS1Zqd2lhNkpoUlFBejNJOXpNKzJvdGJJcC9BOUl0T1FVYktDK2hDRDNJbTZQQW15Y1hBaXJVQXcwcjFwRUZTNkFQRjlFaEI1alBzdUl1NmhmcGU5RXhYK1gydWtiUGlpTkJJcG51aGFkNDZ2TmpHSmZWTTVQYWR2Y2dScUhjUFhkalo2UFJGZzRDVzEzTjkzdno5Y2ZJVnpWWitGK0E2UFhiaDJaU2E0NXg0bjE5Vm10QU8yZEd0VVNzUTFJRERSLzEvMDRPUjFzb05xWUpkT1dkSVNyS3duU0NiN2pPMzRhNUtUQWxOSUlYRFQ2TVVQWnVxWkxtRHBtYmdjRXdQNnVxWW4zeitRMWUxNXlWKzIvcFZUMkFudTlpWXJaNXJRMFdpV1RyVWxCRjVDVndNdG9XREJ2alNSNGI2OFFoeHM0RnpqRVBUOUhVVktOR0ZZL1VMS0FCQng2bTV5QUU0c0NXTnZtL3lXS0VOSXZaMW1wWlJUVTNUazYxRFVyZDdsV3hxMWZRTEovUkdQQ29ya0dMZnJlRm5FVTJxTEF5aEJPdDhtdkx6L1E0amVoWThZRkF4SnhGWjhTVmFaNVFGcnRvWDZheUhxVFBDdUJyOXhvUktlc1lrMTl0RzJEYllyampiMkJwOUdmOVdaUE9PNU80SzZKNUxtUnBzNXZYdVZuOHkzeDVVNTNIUFRXNkhMYVk4N3BUWnhNSGdYZGdacUV0WnRpdGxxN2gycG05aVBKVzA3dXc1LzVFQk9uOGk1TktXQytoSUN1eDhaSm1CMzZHKzFwSnRlN2t5UUdNREs4aWlTd0dQMkZkU1U5TjJkdTFWYVlQVkJqNDQwRVlWdGxpRHZJaUFoQ3ZLVWpDUHdmQmpwUEdXb1BKVFBFZEMyUGVhSk15aDgwQ2VUYW05TmJWRFA4QkczYVFNOUlwdXFuL3J5K1A4cnh0UTZoUitUTGlKdnVCS09ETnpuaWYrM25ycVoraGUxM3JrM0lHNXFDaUpPQkwxUThvbzJsekZYanpYU1pwdzBmQ2dYNFNSOVBpRFQrSDE3YW1CUDVWazZTazJHc0JIZFhFZHhFbkkrWDlldGtaZm1DOHNmNXp6MHJFRHdmVVptYUJxeHlEUzExeEQrNG9PTnVUR0ROZ2FoeFl3RHQyRloyUzZ6K0RzcTVsNFlXSktBckRrMzhxMlZWbzNLbGdNeUtYd1RlS1dyUTZaQllPYndlL2NBZmMrcjI3M1BONWJWdGtlaXlCbkw0eHZqZ0kvaFZOMlVPRjdtNEYzSFRWcmRxTWZ3OU1BRFd5Z3c0UGN0R3V2SnRSRmNCbTIyUWVpYTJ0NGJ1ZkpMM3l2Q1luMXg4T0pwaFNTVEY3MUFLWmhtcGowQWJqMytHL0Jid0ZiWHk0akVSdHFnVDVvVFBJb3JmYitkZ3ZHaE02dHhtdHVvWXFrdDFRcFlwU0hxeDRLK2xlSDh2VFJyR1ZLcmJhOHEwaHZGbWoxdGxQQ2xRMzUzQkRVZW5CL3NqckZvZmNpdWdwazJhRDc5L3M4TSs5T3N5NFl2VWlJRXFVOFNMbFVVbDJpeGRkdmhWR3l1aDl4Q21hUGVZbU5XWTBWZVFITUlyelI5cEEzZ0RGTUR3K1lLNEpodTdlTVFlUDNMbXlPbUxQTG0rMVRERWRFVERjcStocW1JSjBLendkSW9DOUdVMzljUnZxOS9KMFhYcWs0bTRjZz09&file=Voyager-13.3-debian-amd64.iso",
+    "infoHash": "17ee96026e323127a07e343254fc65a30abb0379",
+    "seeders": 9,
+    "leechers": 0,
+    "protocol": "torrent",
+    "fileName": "Voyager-13.3-debian-amd64.iso.torrent"
+  },
+  {
+    "guid": "magnet:?xt=urn:btih:7E5CF5A394EC2E8689C867E260BF074E8DB79815&dn=Voyager-13.2-debian-amd64.iso&tr=http%3a%2f%2ftracker.opentrackr.org%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.auctor.tv%3a6969%2fannounce&tr=udp%3a%2f%2fopentracker.i2p.rocks%3a6969%2fannounce&tr=https%3a%2f%2fopentracker.i2p.rocks%3a443%2fannounce&tr=udp%3a%2f%2fopen.demonii.com%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.openbittorrent.com%3a6969%2fannounce&tr=http%3a%2f%2ftracker.openbittorrent.com%3a80%2fannounce&tr=udp%3a%2f%2fopen.stealth.si%3a80%2fannounce&tr=udp%3a%2f%2ftracker.torrent.eu.org%3a451%2fannounce&tr=udp%3a%2f%2ftracker.moeking.me%3a6969%2fannounce&tr=udp%3a%2f%2fexplodie.org%3a6969%2fannounce&tr=udp%3a%2f%2fexodus.desync.com%3a6969%2fannounce&tr=udp%3a%2f%2fuploads.gamecoast.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker1.bt.moack.co.kr%3a80%2fannounce&tr=udp%3a%2f%2ftracker.tiny-vps.com%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.theoks.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.skyts.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker-udp.gbitt.info%3a80%2fannounce&tr=udp%3a%2f%2fopen.tracker.ink%3a6969%2fannounce&tr=udp%3a%2f%2fmovies.zsw.ca%3a6969%2fannounce",
+    "age": 13,
+    "ageHours": 322.1801726713611,
+    "ageMinutes": 19330.810360281666,
+    "size": 4617089843,
+    "grabs": 19,
+    "indexerId": 1,
+    "indexer": "LinuxTracker",
+    "title": "Voyager-13.2-debian-amd64.iso",
+    "sortTitle": "voyager 13 2 debian amd64 iso",
+    "imdbId": 0,
+    "tmdbId": 0,
+    "tvdbId": 0,
+    "tvMazeId": 0,
+    "publishDate": "2026-10-25T07:00:00Z",
+    "infoUrl": "https://linuxtracker.org/torrents/7e5cf5a394ec2e8689c867e260bf074e8db79815/",
+    "indexerFlags": [
+      "freeleech"
+    ],
+    "categories": [
+      {
+        "id": 4020,
+        "name": "PC/ISO",
+        "subCategories": []
+      },
+      {
+        "id": 102153,
+        "subCategories": []
+      }
+    ],
+    "magnetUrl": "http://localhost:9696/1/download?apikey=0000000000000000000000000000test&link=SS8rcmpMclRlSUQycDl1dU9oT3JGem5Mbzg1dUtFRy95T1llNFhBcEhMNVJPQVZLcXB6SXYyNmU3bEFPNFYrenRHeFpTelBxTXNMT245b0VQZ3VyY2RkdkQ5YyszZTJHR2VNL2V1WEltWk1mNDJrRVpiMjRLVG8xcUlrQnJhWkYzSE1UczltZFU0NHRtcGZPQ1hTNGVzVjRLNVZkanNMc2pVWE9vbnN3S1RYSys4K0lwV2t0K2IyR1FxVVJEK0hTcEJ2SzE2NGxrQmZDN1gvU0o4ZXdqN3lnclBvQjBvMytSR0FNQmw1Y0gwS3VZT3hlNHpRalVkVitrOTNSRDM4UWxTUXhrV0hqOWVEMDlJT0ZtNHp6SUhWRzBiWEhKYkFrdzlEeFF5MUl1UmtzQlB0Zlp0cWE3SnpxNmRTTmpaUFRPcEJVVjJFUmlSKysyNzdZWE1pdkRCNjBoSVJoenVrREFibTdFL1FoT3g0T1Yvd1Y3Z1pNOGppSzViVGFvMnA0c3J6YTF0SS9BRFJjdldpTUpwcTlOcHVJS2M0Nmlkc281bHQ4MkNweHF1KzhPRG9jbSt1Sm9ybnJKWXhydGJSdjZYdnNUU04vUEtkUEZMMDdWNldWa1g4WWQxTkRhQ0dUcTltNnFXVW5mNVEyQ2RxRGZmUTBNZytrQWFWdXRjVE9wQm9WazcydmxFbTNKdjZ1VkZwT3RpaUVhZ0llWkxXakwxTWdvTC9kcVA5OTNHSEt0c2U3eG9aaVpBZ3BnM1hVdHZKcEJZajdFTjNXSzFiREwyWUtyZUUzaEI3cE00Q3dnM2hqTUpFVzgwa2g4WXpLNnZFd20zU0R2TWdiK1hVandMY01hd3htRmhsTGlVNE5FVXBxbDl6blV3eW5kdGhPUDRvdGxOL2pqWkNXdDFCbXM4Q1Z3RnRHN3FRaWxSdExkcVk2L3QrRU55V3BJLzJLb3h1YTdKdVNyM2RobXZ6dlkxY2REdFJPMHhrOVNHaEJ5UEZnaHF5Z002Sm9TSDY4TU1pV3diS0FUdENwb1J6dmduUUJUWkNwN3JRZWhuRG9DWFI0emxlZ2hxK0xtdzNuenBDc1B6eFBPQ3dBV0xBNkJhc2lab21SdUU4c21MQUx1N2xlWUJmYkk3UTViNWNpSTlZR1FHMDBnWjMwcmplMXNvbGV0Z05KQUlsUmRDS1NHQ2VEUStkUi9WOGVheHRremJTWXpPdXJLa1BiaWI1N05BVTIrSW5VdkNuWmVIaEdDNFA0Zm9iVXpVQkhvSW9oWFlCOVpvSDZQeWFyU2VXMWQ2MHFSRGptajdsSU1VQ0p2NDJVSXBGd1BnSjVzRHRJRGZSNFV2UW5SUWFINSswRHNsMjVHQ2ErQ0NPYW9MM3JUbEZBVW1sK2JoVXN2dHAzTHU5WCtiL2tSWUM3UTNKTlI3NjF1YjZmcEtDZ3ZpMkVLc2NCY3I4RUpzZGUzSW5CZ0ZKeFJuSndEUThaSENIa2tmZzY3c3JVNUhWQ1RSUm0xS21LSXJRekFmb3ZFWS9hQ3RwMHVUanExTTY2Qnk2K2IyUzZTY3A2Zy93V0ZBSUNvU2xEL0ovdEdMTE9zT09VS1p4eGtJOC9yWDVyeEJ4aElETk5LRDdVS05NTFdiaUdVMUE2eTl2RlRJK0k0VmM5ZEJDMFpqWmtEUklLNGJJcUhKZklSWmlxaGpCYTNKczlMUUhMdmtMWDNGWE5jcDhCYk50YlhROFJjMkhyZGl6OS9zZTVudnNYLytzSW5xT1VidDhJd3dxd09RQ0dMTW9WbUk3eWpDbDViV0RNclpFaUZmWE9zMjI2cXNnd3lqUncxSVVMelpKZnNWaG96VDlZMkZWb09jYWFBcVRPdGN1SVB3TnFHdDdxeit2QThiVDRtUkhDK0NGN3NnQ05nQTdYZlZRMGgrMFFIbUZGWk02THdINkpzTWllQkpyRkZuMzQ5eGEzM1U4V2JlK1NWSlJKR2JTMmtLaXd4bDdNQlp6NEtJNzRZZlcxbXJXNXZRellGc2p3cmJ5T0hKb09SWVllSjk5VDNGQ2FIa2FYS1NicWVzOTNtdz09&file=Voyager-13.2-debian-amd64.iso",
+    "infoHash": "7e5cf5a394ec2e8689c867e260bf074e8db79815",
+    "seeders": 9,
+    "leechers": 0,
+    "protocol": "torrent",
+    "fileName": "Voyager-13.2-debian-amd64.iso.torrent"
+  }
+]
