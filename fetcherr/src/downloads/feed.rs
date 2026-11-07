@@ -88,6 +88,7 @@ mod tests {
             seeds: 0,
             peers: 0,
             save_path: String::new(),
+            media_type: None,
         }
     }
 

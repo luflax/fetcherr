@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+- Media types: **Movies**, **Series** and **Software**, each with its own indexer categories and
+  download folder. Downloads get the matching qBittorrent category.
+- Qualities for Movies and Series, detected from release titles (Remux, Bluray, WEB and HDTV
+  at 2160p, 1080p and 720p, plus DVD, SDTV and CAM/TS). Each type has a ranked list of allowed
+  qualities.
+- Search by media type and quality. Results only include allowed qualities and are sorted by
+  your quality ranking first, then by seeders, size or age.
+- Pause, resume and delete downloads from the Downloads page or the API. When you delete a
+  download, you can also delete its files.
+- Gear icon for Settings; the top bar shows just the name.
+- The indexer's "default categories" setting is replaced by the media types' categories.
+
 ## 0.2.0
 
 - Search releases through Prowlarr, with filters for categories, seeders and size, and sorting.

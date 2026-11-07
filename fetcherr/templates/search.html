@@ -13,8 +13,18 @@
            placeholder="Title, year, quality…" autofocus>
     <button class="button primary" type="submit">Search</button>
   </div>
+  <div class="segmented" role="radiogroup" aria-label="Media type"
+       hx-get="search/filters" hx-trigger="change" hx-include="[name='media_type']"
+       hx-target="#search-filters" hx-swap="outerHTML">
+    {% for option in media_types %}
+    <label>
+      <input type="radio" name="media_type" value="{{ option.id }}" {% if option.id == form.media_type %}checked{% endif %}>
+      <span>{{ option.label }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  {{ filters|safe }}
   <div class="filters-extra">
-    {{ categories|safe }}
     <label class="field small">Min seeders
       <input class="input" type="number" min="0" name="min_seeders" value="{{ form.min_seeders }}">
     </label>

@@ -1,5 +1,6 @@
 use askama::Template;
-use axum::extract::State;
+use axum::extract::{Path, State};
+use axum::http::Method;
 use axum::response::Response;
 use axum_extra::extract::Form;
 use serde::Deserialize;
@@ -7,7 +8,9 @@ use serde::Deserialize;
 use super::api_client::ApiClient;
 use super::format;
 use super::page::{BaseHref, Layout, Toast, render, render_all};
-use crate::domain::{Download, DownloadStarted, DownloadState, ReleaseId, StartDownload};
+use crate::domain::{
+    Download, DownloadId, DownloadStarted, DownloadState, MediaType, ReleaseId, StartDownload,
+};
 
 pub struct DownloadRow {
     pub id: String,
@@ -20,6 +23,8 @@ pub struct DownloadRow {
     pub eta: String,
     pub seeds: u32,
     pub peers: u32,
+    pub stopped: bool,
+    pub media_type: &'static str,
 }
 
 impl From<Download> for DownloadRow {
@@ -35,6 +40,8 @@ impl From<Download> for DownloadRow {
             eta: format::eta(download.eta_secs),
             seeds: download.seeds,
             peers: download.peers,
+            stopped: download.state.is_stopped(),
+            media_type: download.media_type.map_or("—", MediaType::label),
         }
     }
 }
@@ -105,6 +112,7 @@ pub struct StartForm {
 pub async fn start(State(api): State<ApiClient>, Form(form): Form<StartForm>) -> Response {
     let request = StartDownload {
         release_id: form.release_id.clone(),
+        media_type: None,
         save_path: None,
     };
     let outcome = api
@@ -118,4 +126,39 @@ pub async fn start(State(api): State<ApiClient>, Form(form): Form<StartForm>) ->
         Ok(_) => render_all(&[&button, &Toast::success("Download started")]),
         Err(err) => render_all(&[&button, &Toast::error(err)]),
     }
+}
+
+pub async fn pause(State(api): State<ApiClient>, Path(id): Path<String>) -> Response {
+    act_on(&api, Method::POST, &id, "/pause", "Download paused").await
+}
+
+pub async fn resume(State(api): State<ApiClient>, Path(id): Path<String>) -> Response {
+    act_on(&api, Method::POST, &id, "/resume", "Download resumed").await
+}
+
+#[derive(Deserialize)]
+pub struct DeleteForm {
+    id: String,
+    /// Checkbox: present only when ticked.
+    delete_files: Option<String>,
+}
+
+pub async fn delete(State(api): State<ApiClient>, Form(form): Form<DeleteForm>) -> Response {
+    let query = format!("?delete_files={}", form.delete_files.is_some());
+    act_on(&api, Method::DELETE, &form.id, &query, "Download deleted").await
+}
+
+/// Calls `/api/downloads/{id}{suffix}` and answers with a toast; rows update over the WebSocket.
+async fn act_on(api: &ApiClient, method: Method, id: &str, suffix: &str, done: &str) -> Response {
+    let toast = match DownloadId::try_from(id.to_string()) {
+        Ok(id) => match api
+            .send(method, &format!("/api/downloads/{id}{suffix}"))
+            .await
+        {
+            Ok(()) => Toast::success(done),
+            Err(err) => Toast::error(err),
+        },
+        Err(err) => Toast::error(err),
+    };
+    render(toast)
 }

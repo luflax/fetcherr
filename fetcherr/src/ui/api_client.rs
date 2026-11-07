@@ -2,7 +2,7 @@
 //! in-process. Every page render exercises the public API contract.
 
 use axum::Router;
-use axum::body::Body;
+use axum::body::{Body, Bytes};
 use axum::http::{Method, Request, StatusCode, header};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -53,12 +53,23 @@ impl ApiClient {
         self.call(Method::PUT, uri, json_body(body)?).await
     }
 
+    /// Calls an endpoint that answers without a body (`204 No Content`).
+    pub async fn send(&self, method: Method, uri: &str) -> Result<(), ApiError> {
+        self.exchange(method, uri, Body::empty()).await.map(drop)
+    }
+
     async fn call<T: DeserializeOwned>(
         &self,
         method: Method,
         uri: &str,
         body: Body,
     ) -> Result<T, ApiError> {
+        let bytes = self.exchange(method, uri, body).await?;
+        serde_json::from_slice(&bytes)
+            .map_err(|err| internal(format!("unexpected API response from {uri}: {err}")))
+    }
+
+    async fn exchange(&self, method: Method, uri: &str, body: Body) -> Result<Bytes, ApiError> {
         let request = Request::builder()
             .method(method)
             .uri(uri)
@@ -79,8 +90,7 @@ impl ApiClient {
                 message: error_message(&bytes, status),
             });
         }
-        serde_json::from_slice(&bytes)
-            .map_err(|err| internal(format!("unexpected API response from {uri}: {err}")))
+        Ok(bytes)
     }
 }
 

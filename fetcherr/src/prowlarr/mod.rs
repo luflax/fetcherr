@@ -5,6 +5,7 @@ mod dto;
 use reqwest::{StatusCode, Url, header};
 
 use crate::domain::{Category, FoundRelease, Release, ReleaseId, ReleaseSource};
+use crate::quality;
 use crate::settings::IndexerSettings;
 use crate::torrent::TorrentPayload;
 use crate::upstream::{UpstreamError, ensure_success, parse_base_url};
@@ -169,6 +170,7 @@ fn to_found_release(resource: dto::ReleaseResource) -> Option<FoundRelease> {
     let guid = resource.guid.unwrap_or_else(|| title.clone());
     let release = Release {
         release_id: ReleaseId::from_guid(resource.indexer_id, &guid),
+        quality: quality::parse(&title),
         title,
         indexer: resource.indexer.unwrap_or_default(),
         indexer_id: resource.indexer_id,
@@ -184,6 +186,7 @@ fn to_found_release(resource: dto::ReleaseResource) -> Option<FoundRelease> {
             .map(|c| c.id.max(0) as u32)
             .collect(),
         info_url: resource.info_url,
+        media_type: None,
     };
     Some(FoundRelease { release, source })
 }
@@ -198,7 +201,6 @@ mod tests {
         let settings = IndexerSettings {
             url: server.uri(),
             api_key: "key".into(),
-            categories: vec![],
         };
         ProwlarrClient::new(crate::integrations::http_client(), &settings).unwrap()
     }

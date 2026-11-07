@@ -16,7 +16,7 @@ browser ──WebSocket───────────────────
 | Presentation | `api/` (JSON + OpenAPI), `ui/` (askama + htmx) | parsing input, rendering output |
 | Services | `search`, `downloads`, `settings`, `integrations` | business rules |
 | Providers | `prowlarr`, `qbittorrent` (+ private `dto.rs`) | talking to upstreams |
-| Domain | `domain`, `torrent`, `releases` | shared types, info-hash, release cache |
+| Domain | `domain`, `quality`, `torrent`, `releases` | shared types, quality detection, info-hash, release cache |
 
 - **No database.** Settings are stored in `<data dir>/settings.json`, written atomically.
   Downloads are the qBittorrent torrents tagged `fetcherr`.

@@ -8,4 +8,14 @@
   {{ indexer|safe }}
   {{ download_client|safe }}
 </div>
+
+<h2 class="section-title">Media types</h2>
+<div class="settings-grid">
+  {% for card in media_types %}
+  {{ card|safe }}
+  {% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="static/quality-ranking.js?v={{ layout.version }}" defer></script>
 {% endblock %}

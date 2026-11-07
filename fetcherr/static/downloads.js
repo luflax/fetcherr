@@ -1,9 +1,10 @@
 // Live download progress: consumes the JSON feed of GET api/ws/downloads and patches
-// the server-rendered rows. Formatting mirrors src/ui/format.rs.
+// the server-rendered rows. Formatting mirrors src/ui/format.rs. Also drives the delete dialog.
 (() => {
   const rows = document.getElementById("download-rows");
-  const status = document.getElementById("live-status");
+  const deleteDialog = document.getElementById("delete-dialog");
   const UNITS = ["B", "KB", "MB", "GB", "TB"];
+  const STOPPED = new Set(["paused", "completed", "error"]); // DownloadState::is_stopped
   const STATE_CLASS = {
     downloading: "active", fetching_metadata: "active",
     seeding: "done", completed: "done", error: "error",
@@ -37,6 +38,7 @@
     const field = (name) => row.querySelector(`[data-field="${name}"]`);
     const stateClass = STATE_CLASS[download.state] ?? "idle";
     const percent = (download.progress * 100).toFixed(1);
+    row.classList.toggle("stopped", STOPPED.has(download.state));
     field("state").className = `pill ${stateClass}`;
     field("state").textContent = STATE_LABEL[download.state] ?? download.state;
     field("bar").className = `progress-bar ${stateClass}`;
@@ -63,14 +65,27 @@
     const url = new URL("api/ws/downloads", document.baseURI);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(url);
-    socket.onopen = () => { attempt = 0; status.textContent = "live"; status.classList.add("on"); };
+    socket.onopen = () => { attempt = 0; };
     socket.onmessage = (message) => handle(JSON.parse(message.data));
     socket.onclose = () => {
-      status.textContent = "reconnecting…";
-      status.classList.remove("on");
       setTimeout(() => connect(attempt + 1), Math.min(1000 * 2 ** attempt, 15000));
     };
   };
+
+  const askDelete = (button) => {
+    const form = deleteDialog.querySelector("form");
+    form.reset();
+    form.elements.id.value = button.dataset.delete;
+    deleteDialog.querySelector('[data-field="name"]').textContent = button.dataset.name;
+    deleteDialog.showModal();
+  };
+
+  rows.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-delete]");
+    if (button) askDelete(button);
+  });
+  deleteDialog.querySelector("[data-close]").addEventListener("click", () => deleteDialog.close());
+  deleteDialog.addEventListener("htmx:afterRequest", () => deleteDialog.close());
 
   connect();
 })();

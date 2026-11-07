@@ -72,7 +72,7 @@ impl TestApp {
             .json(
                 Method::PUT,
                 "/api/settings/indexer",
-                json!({"url": prowlarr.uri(), "api_key": "key", "categories": [2000]}),
+                json!({"url": prowlarr.uri(), "api_key": "key"}),
             )
             .await;
         assert_eq!(status, StatusCode::OK);
@@ -99,7 +99,11 @@ async fn mock_prowlarr() -> MockServer {
             "infoUrl": "javascript:alert(1)",
             "categories": [{"id": 2000, "name": "Movies"}], "seeders": 42, "leechers": 3,
             "protocol": "torrent"
-        }])))
+        },
+            movie_release("dune-bluray", "Dune.2021.1080p.BluRay.x264-GRP", 5, '1'),
+            movie_release("dune-web", "Dune.2021.2160p.WEB-DL.x265-GRP", 7, '2'),
+            movie_release("dune-cam", "Dune.2021.HDCAM.x264", 9, '3'),
+        ])))
         .mount(&server)
         .await;
     Mock::given(path("/api/v1/indexer/categories"))
@@ -110,6 +114,17 @@ async fn mock_prowlarr() -> MockServer {
         .mount(&server)
         .await;
     server
+}
+
+/// A Movies sub-category (2040) release with a magnet link of `hash_digit` repeated.
+fn movie_release(guid: &str, title: &str, seeders: u32, hash_digit: char) -> Value {
+    json!({
+        "guid": guid, "ageHours": 2.0, "size": 1_000_000, "indexerId": 1, "indexer": "Public",
+        "title": title, "publishDate": "2024-01-01T00:00:00Z",
+        "magnetUrl": format!("magnet:?xt=urn:btih:{}", hash_digit.to_string().repeat(40)),
+        "categories": [{"id": 2040, "name": "Movies/HD"}], "seeders": seeders, "leechers": 0,
+        "protocol": "torrent"
+    })
 }
 
 async fn mock_qbittorrent() -> MockServer {
@@ -298,12 +313,10 @@ async fn ui_settings_test_shows_version_and_categories() {
         .await;
     let app = TestApp::new("ui-test").await;
 
-    let form = format!("url={}&api_key=key&categories=5000", prowlarr.uri());
+    let form = format!("url={}&api_key=key", prowlarr.uri());
     let (status, fragment) = app.form("/settings/indexer/test", &form).await;
     assert_eq!(status, StatusCode::OK);
     assert!(fragment.contains("Connected to Prowlarr 1.30.0"));
-    assert!(fragment.contains(r#"value="5000" checked"#));
-    assert!(fragment.contains("hx-swap-oob"));
 }
 
 #[tokio::test]
@@ -325,4 +338,216 @@ async fn serves_embedded_assets() {
     assert_eq!(status, StatusCode::OK);
     assert!(css.contains("--accent"));
     assert_eq!(app.get("/static/missing.js").await.0, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn pause_resume_and_delete_go_through_the_api() {
+    let (prowlarr, qbittorrent) = (mock_prowlarr().await, mock_qbittorrent().await);
+    for action in ["stop", "start"] {
+        Mock::given(method("POST"))
+            .and(path(format!("/api/v2/torrents/{action}")))
+            .and(body_string_contains(HASH))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&qbittorrent)
+            .await;
+    }
+    Mock::given(method("POST"))
+        .and(path("/api/v2/torrents/delete"))
+        .and(body_string_contains("deleteFiles=true"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(2)
+        .mount(&qbittorrent)
+        .await;
+    let app = TestApp::new("actions").await;
+    app.configure(&prowlarr, &qbittorrent).await;
+
+    let (_, page) = app.get("/downloads").await;
+    assert!(page.contains(&format!(r#"hx-post="downloads/{HASH}/pause""#)));
+
+    let (status, toast) = app.form(&format!("/downloads/{HASH}/pause"), "").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(toast.contains("Download paused"));
+    let (_, toast) = app.form(&format!("/downloads/{HASH}/resume"), "").await;
+    assert!(toast.contains("Download resumed"));
+    let (_, toast) = app
+        .form("/downloads/delete", &format!("id={HASH}&delete_files=on"))
+        .await;
+    assert!(toast.contains("Download deleted"));
+
+    let request = Request::delete(format!("/api/downloads/{HASH}?delete_files=true"))
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(app.request(request).await.0, StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn acting_on_a_foreign_torrent_is_not_found() {
+    let (prowlarr, qbittorrent) = (mock_prowlarr().await, mock_qbittorrent().await);
+    let app = TestApp::new("foreign").await;
+    app.configure(&prowlarr, &qbittorrent).await;
+
+    let other = "0".repeat(40);
+    Mock::given(path("/api/v2/torrents/info"))
+        .and(query_param("hashes", other.as_str()))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .with_priority(1)
+        .mount(&qbittorrent)
+        .await;
+    let (status, _) = app
+        .json(
+            Method::POST,
+            &format!("/api/downloads/{other}/pause"),
+            Value::Null,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (_, toast) = app.form("/downloads/not-a-hash/pause", "").await;
+    assert!(toast.contains("toast error"));
+}
+
+#[tokio::test]
+async fn media_type_search_keeps_allowed_qualities_in_preference_order() {
+    let (prowlarr, qbittorrent) = (mock_prowlarr().await, mock_qbittorrent().await);
+    let app = TestApp::new("media-search").await;
+    app.configure(&prowlarr, &qbittorrent).await;
+    let (status, saved) = app
+        .json(
+            Method::PUT,
+            "/api/settings/media-types/movies",
+            json!({"categories": [2000], "download_folder": "/media/films",
+                   "allowed_qualities": ["bluray_1080p", "web_2160p"]}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(
+        saved["allowed_qualities"],
+        json!(["bluray_1080p", "web_2160p"])
+    );
+
+    let (status, releases) = app
+        .json(
+            Method::GET,
+            "/api/search?query=dune&media_type=movies",
+            Value::Null,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let titles: Vec<&str> = releases
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|release| release["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        titles,
+        [
+            "Dune.2021.1080p.BluRay.x264-GRP",
+            "Dune.2021.2160p.WEB-DL.x265-GRP"
+        ],
+        "CAM and unknown qualities are not allowed; Bluray-1080p ranks above the more seeded WEB-2160p"
+    );
+    assert_eq!(releases[0]["media_type"], "movies");
+    let searched = prowlarr.received_requests().await.unwrap();
+    assert!(
+        searched.iter().any(|request| request
+            .url
+            .query()
+            .unwrap_or("")
+            .contains("categories=2000")),
+        "searches the media type's categories"
+    );
+
+    Mock::given(method("POST"))
+        .and(path("/api/v2/torrents/add"))
+        .and(body_string_contains("/media/films"))
+        .and(body_string_contains("movies"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("Ok."))
+        .expect(1)
+        .mount(&qbittorrent)
+        .await;
+    let (status, started) = app
+        .json(
+            Method::POST,
+            "/api/downloads",
+            json!({"release_id": releases[0]["release_id"]}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    assert_eq!(started["id"], "1".repeat(40));
+}
+
+#[tokio::test]
+async fn release_media_type_is_inferred_when_searching_everything() {
+    let (prowlarr, qbittorrent) = (mock_prowlarr().await, mock_qbittorrent().await);
+    let app = TestApp::new("media-all").await;
+    app.configure(&prowlarr, &qbittorrent).await;
+
+    let (_, releases) = app
+        .json(Method::GET, "/api/search?query=dune", Value::Null)
+        .await;
+    let cam = releases
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|release| release["quality"] == "cam")
+        .expect("every quality is allowed by default");
+    assert_eq!(cam["media_type"], "movies", "2040 belongs to Movies (2000)");
+}
+
+#[tokio::test]
+async fn ui_media_type_settings_and_search_filters_go_through_the_api() {
+    let (prowlarr, qbittorrent) = (mock_prowlarr().await, mock_qbittorrent().await);
+    let app = TestApp::new("ui-media").await;
+    app.configure(&prowlarr, &qbittorrent).await;
+
+    let (status, page) = app.get("/settings").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains(r#"hx-post="settings/media/movies""#));
+    assert!(page.contains(r#"hx-post="settings/media/software""#));
+
+    let form = "categories=5000&download_folder=%2Fmedia%2Ftv&allowed_qualities=web_720p\
+                &allowed_qualities=web_1080p";
+    let (status, card) = app.form("/settings/media/series", form).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(card.contains("Series settings saved"));
+    assert!(card.contains(r#"value="/media/tv""#));
+    assert!(
+        position(&card, "web_720p") < position(&card, "web_1080p"),
+        "the ranking keeps the submitted order"
+    );
+
+    let (_, filters) = app.get("/search/filters?media_type=series").await;
+    assert!(filters.contains(r#"value="5000" checked"#));
+    assert!(filters.contains(r#"value="web_720p" checked"#));
+    assert!(!filters.contains(r#"value="cam" checked"#));
+    assert!(position(&filters, "web_720p") < position(&filters, "web_1080p"));
+
+    let (_, software) = app.get("/search/filters?media_type=software").await;
+    assert!(
+        !software.contains(r#"name="qualities""#),
+        "Software has no qualities"
+    );
+
+    let (status, _) = app
+        .json(
+            Method::PUT,
+            "/api/settings/media-types/software",
+            json!({"allowed_qualities": ["web_1080p"]}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+fn position(html: &str, quality: &str) -> usize {
+    html.find(&format!(r#"value="{quality}""#))
+        .unwrap_or_else(|| panic!("{quality} not rendered"))
+}
+
+#[tokio::test]
+async fn downloads_page_has_no_live_indicator() {
+    let app = TestApp::new("no-live").await;
+    let (_, page) = app.get("/downloads").await;
+    assert!(!page.contains("live-status"));
 }

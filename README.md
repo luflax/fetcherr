@@ -26,10 +26,33 @@ cargo run            # http://localhost:8734 (PORT=...), settings in ./data (DAT
 - Swagger: <http://localhost:8734/docs/>
 - Live feed: `ws://localhost:8734/api/ws/downloads`
 
-For a local stack, run `lscr.io/linuxserver/prowlarr` (port 9696) and
-`lscr.io/linuxserver/qbittorrent` (port 8080) in Docker and point the settings at them.
+### Local Docker stack
 
-Docker:
+`docker-compose.dev.yml` builds Fetcherr from this tree and runs it with Prowlarr and
+qBittorrent:
+
+```sh
+docker compose -f docker-compose.dev.yml up -d --build
+docker compose -f docker-compose.dev.yml logs qbittorrent | grep "temporary password"
+```
+
+1. **Prowlarr** (<http://localhost:9696>): finish the first-run setup and add an indexer
+   (e.g. Linuxtracker). Copy the API key from Settings → General.
+2. **Fetcherr** (<http://localhost:8734>) → Settings:
+   - **Prowlarr:** `http://prowlarr:9696` and the API key.
+   - **qBittorrent:** `http://qbittorrent:8080`, user `admin`, the temporary password, and
+     default folder `/downloads`.
+   - **Media types:** folders under `/downloads` (e.g. `/downloads/movies`).
+
+   Inside the stack, use the service names, not `localhost`. Folders are paths as qBittorrent
+   sees them. Downloaded files end up in `./data/downloads`.
+3. Rebuild after code changes with `docker compose -f docker-compose.dev.yml up -d --build fetcherr`.
+   Tear everything down, settings included, with `docker compose -f docker-compose.dev.yml down -v`.
+
+The qBittorrent temporary password changes on every restart until you set your own in its
+WebUI (Tools → Options → WebUI).
+
+### Single container
 
 ```sh
 docker build -t fetcherr:dev fetcherr/

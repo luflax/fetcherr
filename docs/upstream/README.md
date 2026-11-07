@@ -26,3 +26,10 @@ The code handles these explicitly:
 - **qBittorrent 5.3** answers a bad login with `401 Unauthorized`. The docs only describe
   `200` with the body `Fails.`.
 - **qBittorrent 5.x** reports `stoppedDL`/`stoppedUP`. The docs list `pausedDL`/`pausedUP`.
+- **qBittorrent 5.3** answers a successful login with `204` and no body. The session cookie
+  can be named `QBT_SID_<port>`. `torrents/add` returns JSON (`added_torrent_ids`, …) instead of
+  `Ok.`. Only `Fails.` counts as a failure.
+- **qBittorrent `torrents/add` with a `category`** creates that category when it doesn't exist
+  (checked on 5.3). The docs don't say either way.
+- **qBittorrent `torrents/stop|start|delete`** return `200` for any hash. Fetcherr checks the
+  torrent is one of its own first, so it can answer `404`.
