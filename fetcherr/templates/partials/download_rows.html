@@ -1,0 +1,20 @@
+{% if let Some(error) = error %}
+<tr class="placeholder"><td colspan="7"><p class="notice error">{{ error }}</p></td></tr>
+{% else if rows.is_empty() %}
+<tr class="placeholder"><td colspan="7"><p class="empty">Nothing downloading yet. <a href="./">Search</a> for something.</p></td></tr>
+{% else %}
+{% for row in rows %}
+<tr data-id="{{ row.id }}">
+  <td class="title">{{ row.name }}</td>
+  <td><span class="pill {{ row.state }}" data-field="state">{{ row.state_label }}</span></td>
+  <td class="progress-col">
+    <div class="progress"><div class="progress-bar {{ row.state }}" data-field="bar" style="width: {{ row.percent }}%"></div></div>
+    <span class="progress-label" data-field="percent">{{ row.percent }}%</span>
+  </td>
+  <td class="num" data-field="size">{{ row.size }}</td>
+  <td class="num" data-field="speed">{{ row.speed }}</td>
+  <td class="num" data-field="eta">{{ row.eta }}</td>
+  <td class="num" data-field="peers">{{ row.seeds }} / {{ row.peers }}</td>
+</tr>
+{% endfor %}
+{% endif %}

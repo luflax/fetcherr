@@ -1,96 +1,60 @@
+mod api;
 mod config;
-mod routes;
+mod domain;
+mod downloads;
+mod error;
+mod integrations;
+mod prowlarr;
+mod qbittorrent;
+mod releases;
+mod search;
+mod server;
+mod settings;
+mod state;
+mod torrent;
+mod ui;
+mod upstream;
 
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::sync::Arc;
-
-use tokio::net::TcpListener;
+use axum::Router;
+use tower_http::compression::CompressionLayer;
+use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
 use crate::config::Config;
-
-/// State shared by all handlers. Future upstream clients (e.g. a `reqwest::Client`) go here.
-#[derive(Clone)]
-pub struct AppState {
-    #[allow(dead_code)]
-    pub config: Arc<Config>,
-}
+use crate::state::AppState;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> std::io::Result<()> {
     let config = Config::load();
+    init_tracing(&config.log_level);
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_new(&config.log_level).unwrap_or_else(|_| EnvFilter::new("info")),
-        )
-        .init();
+    let state = AppState::initialize(&config.data_dir).await;
+    let listener = server::bind_listener(config.port)?;
+    tracing::info!(
+        "fetcherr listening on {} (data dir {})",
+        listener.local_addr()?,
+        config.data_dir.display()
+    );
 
-    let port = config.port;
-    let state = AppState {
-        config: Arc::new(config),
-    };
-
-    let listener = bind_listener(port)?;
-    tracing::info!("fetcherr listening on {}", listener.local_addr()?);
-
-    axum::serve(listener, routes::router(state))
-        .with_graceful_shutdown(shutdown_signal())
+    axum::serve(listener, app(state))
+        .with_graceful_shutdown(server::shutdown_signal())
         .await?;
-
     tracing::info!("fetcherr stopped");
     Ok(())
 }
 
-/// Binds a dual-stack `[::]` socket so the API answers on both IPv6 and IPv4.
-/// `homeassistant.local` resolves to IPv6 first via mDNS, so IPv4-only listening is not enough.
-/// Falls back to `0.0.0.0` when IPv6 is unavailable in the container.
-fn bind_listener(port: u16) -> std::io::Result<TcpListener> {
-    match bind_socket(SocketAddr::from((Ipv6Addr::UNSPECIFIED, port)), true) {
-        Ok(listener) => Ok(listener),
-        Err(err) => {
-            tracing::warn!("IPv6 bind failed ({err}), falling back to IPv4 only");
-            bind_socket(SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)), false)
-        }
-    }
+fn init_tracing(log_level: &str) {
+    let filter = EnvFilter::try_new(log_level).unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 }
 
-fn bind_socket(addr: SocketAddr, dual_stack: bool) -> std::io::Result<TcpListener> {
-    use socket2::{Domain, Protocol, Socket, Type};
-
-    let socket = Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP))?;
-    if dual_stack {
-        socket.set_only_v6(false)?;
-    }
-    socket.set_reuse_address(true)?;
-    socket.set_nonblocking(true)?;
-    socket.bind(&addr.into())?;
-    socket.listen(1024)?;
-    TcpListener::from_std(socket.into())
+fn app(state: AppState) -> Router {
+    let api = api::router(state);
+    let ui = ui::router(ui::ApiClient::new(api.clone()));
+    api.merge(ui)
+        .layer(CompressionLayer::new())
+        .layer(TraceLayer::new_for_http())
 }
 
-/// Resolves on SIGINT (Ctrl+C) or SIGTERM (sent by Docker / the HA Supervisor on stop).
-async fn shutdown_signal() {
-    let ctrl_c = async {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
-    };
-
-    #[cfg(unix)]
-    let terminate = async {
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("failed to install SIGTERM handler")
-            .recv()
-            .await;
-    };
-
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
-    }
-    tracing::info!("shutdown signal received");
-}
+#[cfg(test)]
+mod tests;

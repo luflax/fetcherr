@@ -1,0 +1,8 @@
+{% if added %}
+<a class="pill done" href="downloads">Added</a>
+{% else %}
+<form hx-post="downloads" hx-swap="outerHTML">
+  <input type="hidden" name="release_id" value="{{ release_id }}">
+  <button class="button small" type="submit">Retry</button>
+</form>
+{% endif %}

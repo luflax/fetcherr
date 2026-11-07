@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Downloads{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Downloads</h1>
+  <span id="live-status" class="live">connecting…</span>
+</div>
+
+<div class="table-wrap card flush">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th><th>Status</th><th class="progress-col">Progress</th>
+        <th class="num">Size</th><th class="num">Speed</th><th class="num">ETA</th><th class="num">Peers</th>
+      </tr>
+    </thead>
+    <tbody id="download-rows" hx-get="downloads/rows" hx-trigger="refresh">
+      {{ rows|safe }}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="static/downloads.js?v={{ layout.version }}" defer></script>
+{% endblock %}

@@ -10,6 +10,8 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs \
     && rm -rf src
 
 COPY src ./src
+COPY templates ./templates
+COPY static ./static
 RUN touch src/main.rs && cargo build --release --locked
 
 # ---- Runtime stage ----
@@ -22,7 +24,7 @@ ARG BUILD_ARCH=amd64
 ARG BUILD_VERSION=dev
 LABEL \
     io.hass.name="Fetcherr" \
-    io.hass.description="Backend API that aggregates external and Home Assistant add-on APIs" \
+    io.hass.description="Search releases with Prowlarr and download them with qBittorrent" \
     io.hass.type="addon" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.version="${BUILD_VERSION}" \

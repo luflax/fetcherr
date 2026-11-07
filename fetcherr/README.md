@@ -1,5 +1,6 @@
 # Fetcherr
 
-Backend REST API that aggregates external services and other Home Assistant add-on APIs.
+Search releases with Prowlarr and download them with qBittorrent, from the Home Assistant
+sidebar or a REST/WebSocket API.
 
-See the **Documentation** tab for usage.
+See the **Documentation** tab for setup and API usage.

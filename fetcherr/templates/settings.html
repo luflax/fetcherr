@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Settings</h1>
+</div>
+<div class="settings-grid">
+  {{ indexer|safe }}
+  {{ download_client|safe }}
+</div>
+{% endblock %}

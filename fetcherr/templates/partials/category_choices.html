@@ -1,0 +1,12 @@
+<div id="{{ dom_id }}" class="choices" {% if out_of_band %}hx-swap-oob="true"{% endif %}>
+  {% if let Some(hint) = hint %}
+  <span class="muted">{{ hint }}</span>
+  {% else %}
+  {% for option in options %}
+  <label class="choice">
+    <input type="checkbox" name="categories" value="{{ option.id }}" {% if option.checked %}checked{% endif %}>
+    {{ option.name }}
+  </label>
+  {% endfor %}
+  {% endif %}
+</div>

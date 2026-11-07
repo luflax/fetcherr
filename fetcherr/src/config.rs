@@ -1,9 +1,10 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-/// Where the Home Assistant Supervisor writes the add-on options.
-const HA_OPTIONS_PATH: &str = "/data/options.json";
+/// Where the Home Assistant Supervisor mounts persistent add-on storage.
+const HA_DATA_DIR: &str = "/data";
+const DEV_DATA_DIR: &str = "./data";
 const DEFAULT_PORT: u16 = 8734;
 const DEFAULT_LOG_LEVEL: &str = "info";
 
@@ -17,12 +18,14 @@ struct AddonOptions {
 pub struct Config {
     pub log_level: String,
     pub port: u16,
+    pub data_dir: PathBuf,
 }
 
 impl Config {
     /// Precedence: HA options file > environment variables > defaults.
     pub fn load() -> Self {
-        let options = read_options(Path::new(HA_OPTIONS_PATH)).unwrap_or_default();
+        let data_dir = data_dir();
+        let options = read_options(&data_dir.join("options.json")).unwrap_or_default();
 
         let log_level = options
             .log_level
@@ -34,7 +37,22 @@ impl Config {
             .and_then(|p| p.parse().ok())
             .unwrap_or(DEFAULT_PORT);
 
-        Self { log_level, port }
+        Self {
+            log_level,
+            port,
+            data_dir,
+        }
+    }
+}
+
+fn data_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("DATA_DIR") {
+        return PathBuf::from(dir);
+    }
+    if Path::new(HA_DATA_DIR).is_dir() {
+        PathBuf::from(HA_DATA_DIR)
+    } else {
+        PathBuf::from(DEV_DATA_DIR)
     }
 }
 
