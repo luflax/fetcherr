@@ -1,0 +1,21 @@
+name: Fetcherr
+version: "0.1.0"
+slug: fetcherr
+description: Backend API that aggregates external and Home Assistant add-on APIs
+url: https://github.com/luflax/fetcherr
+arch:
+  - amd64
+  - aarch64
+image: ghcr.io/luflax/fetcherr-{arch}
+startup: application
+boot: auto
+init: true
+ports:
+  8734/tcp: 8734
+ports_description:
+  8734/tcp: Fetcherr REST API
+watchdog: http://[HOST]:[PORT:8734]/health
+options:
+  log_level: info
+schema:
+  log_level: list(trace|debug|info|warn|error)
