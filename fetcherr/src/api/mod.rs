@@ -43,10 +43,15 @@ pub fn router(state: AppState) -> Router {
             settings::put_download_client
         ))
         .routes(routes!(settings::test_download_client))
+        .routes(routes!(settings::get_media_types))
+        .routes(routes!(settings::put_media_type))
+        .routes(routes!(search::qualities))
         .routes(routes!(search::categories))
         .routes(routes!(search::search))
         .routes(routes!(downloads::start, downloads::list))
-        .routes(routes!(downloads::get))
+        .routes(routes!(downloads::get, downloads::delete))
+        .routes(routes!(downloads::pause))
+        .routes(routes!(downloads::resume))
         .split_for_parts();
 
     let spec = openapi.to_json().unwrap_or_else(|err| {

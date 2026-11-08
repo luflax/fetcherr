@@ -1,0 +1,27 @@
+# Local test stack: Fetcherr (built from ./fetcherr) + Prowlarr + qBittorrent.
+# Usage and first-run setup: see "Local Docker stack" in README.md.
+services:
+  fetcherr:
+    build: ./fetcherr
+    ports: ["8734:8734"]
+    volumes: ["fetcherr-data:/data"]
+    depends_on: [prowlarr, qbittorrent]
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    ports: ["9696:9696"]
+    volumes: ["prowlarr-config:/config"]
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    environment:
+      WEBUI_PORT: "8080" # must match the published port, or the WebUI rejects logins (401)
+    ports: ["8080:8080"]
+    volumes:
+      - qbittorrent-config:/config
+      - ./data/downloads:/downloads
+
+volumes:
+  fetcherr-data:
+  prowlarr-config:
+  qbittorrent-config:

@@ -1,0 +1,35 @@
+<form id="media-{{ settings.media_type }}" class="card settings-card"
+      hx-post="settings/media/{{ settings.media_type }}" hx-target="this" hx-swap="outerHTML">
+  <h2>{{ settings.label }}</h2>
+  <div class="field">Indexer categories
+    {{ categories|safe }}
+  </div>
+  <label class="field">Download folder
+    <input class="input" type="text" name="download_folder" value="{{ settings.download_folder }}"
+           placeholder="Default download folder">
+  </label>
+  {% if settings.has_qualities %}
+  <div class="field">Qualities
+    <span class="hint">Tick the allowed ones and order them by preference. Results are ranked in this order.</span>
+    <ol class="quality-ranking">
+      {% for quality in qualities %}
+      <li>
+        <label class="choice">
+          <input type="checkbox" name="allowed_qualities" value="{{ quality.id }}" {% if quality.checked %}checked{% endif %}>
+          {{ quality.label }}
+        </label>
+        <button type="button" class="icon-button" data-move="up" title="Move up" aria-label="Move {{ quality.label }} up">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" /></svg>
+        </button>
+        <button type="button" class="icon-button" data-move="down" title="Move down" aria-label="Move {{ quality.label }} down">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+  <div class="card-actions">
+    <button class="button primary" type="submit">Save</button>
+  </div>
+</form>

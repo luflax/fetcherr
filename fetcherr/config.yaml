@@ -1,5 +1,5 @@
 name: Fetcherr
-version: "0.2.0"
+version: "0.3.0"
 slug: fetcherr
 description: Search releases with Prowlarr and download them with qBittorrent
 url: https://github.com/luflax/fetcherr

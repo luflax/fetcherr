@@ -1,11 +1,13 @@
 use axum::Json;
-use axum::extract::State;
+use axum::extract::{Path, State};
 
+use crate::domain::MediaType;
 use crate::error::{AppError, ErrorBody};
 use crate::integrations;
 use crate::settings::{
     DownloadClientSettingsInput, DownloadClientSettingsView, DownloadClientTestResult,
-    IndexerSettingsInput, IndexerSettingsView, IndexerTestResult,
+    IndexerSettingsInput, IndexerSettingsView, IndexerTestResult, MediaTypeSettingsInput,
+    MediaTypeSettingsView,
 };
 use crate::state::AppState;
 
@@ -105,4 +107,43 @@ pub async fn test_download_client(
     Ok(Json(
         integrations::test_qbittorrent(&state.http, &candidate).await?,
     ))
+}
+
+#[utoipa::path(
+    get, path = "/api/settings/media-types", tag = "settings",
+    responses((status = 200, body = Vec<MediaTypeSettingsView>))
+)]
+pub async fn get_media_types(State(state): State<AppState>) -> Json<Vec<MediaTypeSettingsView>> {
+    Json(MediaTypeSettingsView::all(&state.settings.get().media))
+}
+
+/// Categories, download folder and qualities of one media type.
+#[utoipa::path(
+    put, path = "/api/settings/media-types/{media_type}", tag = "settings",
+    params(("media_type" = MediaType, Path, description = "movies, series or software")),
+    request_body = MediaTypeSettingsInput,
+    responses(
+        (status = 200, body = MediaTypeSettingsView),
+        (status = 404, description = "Unknown media type", body = ErrorBody),
+        (status = 422, description = "Invalid settings", body = ErrorBody),
+    )
+)]
+pub async fn put_media_type(
+    State(state): State<AppState>,
+    Path(media_type): Path<String>,
+    Json(input): Json<MediaTypeSettingsInput>,
+) -> Result<Json<MediaTypeSettingsView>, AppError> {
+    let media_type = MediaType::from_id(&media_type)
+        .ok_or_else(|| AppError::NotFound(format!("media type '{media_type}'")))?;
+    let validated = input.validate(media_type)?;
+    let settings = state
+        .update_settings(|settings| {
+            *settings.media.get_mut(media_type) = validated;
+            Ok(())
+        })
+        .await?;
+    Ok(Json(MediaTypeSettingsView::new(
+        media_type,
+        settings.media.get(media_type),
+    )))
 }

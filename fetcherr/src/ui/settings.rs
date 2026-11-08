@@ -1,15 +1,17 @@
 use askama::Template;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Response};
 use axum_extra::extract::Form;
 use serde::Deserialize;
 
 use super::api_client::{ApiClient, ApiError};
 use super::page::{BaseHref, Layout, Toast, render, render_all};
-use crate::domain::Category;
+use crate::domain::{Category, MediaType};
+use crate::quality::Quality;
 use crate::settings::{
     DEFAULT_POLL_INTERVAL_MS, DownloadClientSettingsInput, DownloadClientSettingsView,
     DownloadClientTestResult, IndexerSettingsInput, IndexerSettingsView, IndexerTestResult,
+    MediaTypeSettingsInput, MediaTypeSettingsView,
 };
 
 pub struct CategoryOption {
@@ -22,53 +24,73 @@ pub struct CategoryOption {
 #[derive(Template)]
 #[template(path = "partials/category_choices.html")]
 pub struct CategoryChoices {
-    pub dom_id: &'static str,
+    pub dom_id: String,
     pub options: Vec<CategoryOption>,
     pub hint: Option<String>,
-    pub out_of_band: bool,
 }
 
 impl CategoryChoices {
-    fn new(dom_id: &'static str, categories: Vec<Category>, selected: &[u32]) -> Self {
-        let options = categories
-            .into_iter()
-            .map(|category| CategoryOption {
-                checked: selected.contains(&category.id),
-                id: category.id,
-                name: category.name,
-            })
-            .collect();
-        Self {
-            dom_id,
-            options,
-            hint: None,
-            out_of_band: false,
-        }
-    }
-
-    fn unavailable(dom_id: &'static str, err: ApiError) -> Self {
-        Self {
-            dom_id,
-            options: Vec::new(),
-            hint: Some(err.message),
-            out_of_band: false,
+    /// `categories` is the indexer's list, or why it could not be loaded.
+    pub fn new(
+        dom_id: String,
+        categories: &Result<Vec<Category>, ApiError>,
+        selected: &[u32],
+    ) -> Self {
+        match categories {
+            Ok(categories) => Self {
+                dom_id,
+                options: categories
+                    .iter()
+                    .map(|category| CategoryOption {
+                        checked: selected.contains(&category.id),
+                        id: category.id,
+                        name: category.name.clone(),
+                    })
+                    .collect(),
+                hint: None,
+            },
+            Err(err) => Self {
+                dom_id,
+                options: Vec::new(),
+                hint: Some(err.message.clone()),
+            },
         }
     }
 }
 
-pub async fn load_category_choices(
-    api: &ApiClient,
-    dom_id: &'static str,
-    selected: &[u32],
-    out_of_band: bool,
-) -> CategoryChoices {
-    let choices = match api.get::<Vec<Category>>("/api/indexer/categories").await {
-        Ok(categories) => CategoryChoices::new(dom_id, categories, selected),
-        Err(err) => CategoryChoices::unavailable(dom_id, err),
-    };
-    CategoryChoices {
-        out_of_band,
-        ..choices
+pub async fn fetch_categories(api: &ApiClient) -> Result<Vec<Category>, ApiError> {
+    api.get::<Vec<Category>>("/api/indexer/categories").await
+}
+
+pub struct QualityChoice {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub checked: bool,
+}
+
+impl QualityChoice {
+    /// Every quality: the `ranked` ones first and checked, in preference order, then the rest
+    /// unchecked. An empty ranking allows everything, so all are checked, best first.
+    pub fn ranked(ranked: &[Quality]) -> Vec<Self> {
+        if ranked.is_empty() {
+            return Quality::ALL.map(|quality| Self::new(quality, true)).into();
+        }
+        let rest = Quality::ALL
+            .into_iter()
+            .filter(|quality| !ranked.contains(quality));
+        ranked
+            .iter()
+            .map(|quality| Self::new(*quality, true))
+            .chain(rest.map(|quality| Self::new(quality, false)))
+            .collect()
+    }
+
+    fn new(quality: Quality, checked: bool) -> Self {
+        Self {
+            id: quality.id(),
+            label: quality.label(),
+            checked,
+        }
     }
 }
 
@@ -76,18 +98,6 @@ pub async fn load_category_choices(
 #[template(path = "partials/indexer_card.html")]
 struct IndexerCard {
     settings: IndexerSettingsView,
-    categories: CategoryChoices,
-}
-
-impl IndexerCard {
-    async fn load(api: &ApiClient, settings: IndexerSettingsView) -> Self {
-        let categories =
-            load_category_choices(api, "indexer-categories", &settings.categories, false).await;
-        Self {
-            settings,
-            categories,
-        }
-    }
 }
 
 #[derive(Template)]
@@ -97,27 +107,56 @@ struct DownloadClientCard {
 }
 
 #[derive(Template)]
+#[template(path = "partials/media_type_card.html")]
+struct MediaTypeCard {
+    settings: MediaTypeSettingsView,
+    categories: CategoryChoices,
+    qualities: Vec<QualityChoice>,
+}
+
+impl MediaTypeCard {
+    fn new(settings: MediaTypeSettingsView, categories: &Result<Vec<Category>, ApiError>) -> Self {
+        let dom_id = format!("{}-categories", settings.media_type);
+        Self {
+            categories: CategoryChoices::new(dom_id, categories, &settings.categories),
+            qualities: QualityChoice::ranked(&settings.allowed_qualities),
+            settings,
+        }
+    }
+}
+
+#[derive(Template)]
 #[template(path = "settings.html")]
 struct SettingsPage {
     layout: Layout,
     indexer: IndexerCard,
     download_client: DownloadClientCard,
+    media_types: Vec<MediaTypeCard>,
 }
 
 pub async fn page(State(api): State<ApiClient>, base: BaseHref) -> Response {
-    let indexer = api.get::<IndexerSettingsView>("/api/settings/indexer");
-    let download_client = api.get::<DownloadClientSettingsView>("/api/settings/download-client");
-    let (indexer, download_client) = tokio::join!(indexer, download_client);
-    let (indexer, download_client) = match (indexer, download_client) {
-        (Ok(indexer), Ok(download_client)) => (indexer, download_client),
-        (Err(err), _) | (_, Err(err)) => return render(Toast::error(err)),
+    let (indexer, download_client, media_types, categories) = tokio::join!(
+        api.get::<IndexerSettingsView>("/api/settings/indexer"),
+        api.get::<DownloadClientSettingsView>("/api/settings/download-client"),
+        api.get::<Vec<MediaTypeSettingsView>>("/api/settings/media-types"),
+        fetch_categories(&api),
+    );
+    let (indexer, download_client, media_types) = match (indexer, download_client, media_types) {
+        (Ok(indexer), Ok(download_client), Ok(media_types)) => {
+            (indexer, download_client, media_types)
+        }
+        (Err(err), _, _) | (_, Err(err), _) | (_, _, Err(err)) => return render(Toast::error(err)),
     };
     render(SettingsPage {
         layout: Layout::new(base, "settings"),
-        indexer: IndexerCard::load(&api, indexer).await,
+        indexer: IndexerCard { settings: indexer },
         download_client: DownloadClientCard {
             settings: download_client,
         },
+        media_types: media_types
+            .into_iter()
+            .map(|settings| MediaTypeCard::new(settings, &categories))
+            .collect(),
     })
 }
 
@@ -126,7 +165,6 @@ pub async fn page(State(api): State<ApiClient>, base: BaseHref) -> Response {
 pub struct IndexerForm {
     url: String,
     api_key: String,
-    categories: Vec<u32>,
 }
 
 impl From<IndexerForm> for IndexerSettingsInput {
@@ -134,7 +172,6 @@ impl From<IndexerForm> for IndexerSettingsInput {
         Self {
             url: form.url,
             api_key: Some(form.api_key),
-            categories: form.categories,
         }
     }
 }
@@ -165,6 +202,29 @@ impl From<DownloadClientForm> for DownloadClientSettingsInput {
     }
 }
 
+#[derive(Deserialize, Default)]
+#[serde(default)]
+pub struct MediaTypeForm {
+    categories: Vec<u32>,
+    download_folder: String,
+    /// Ticked qualities in list order, which is the preference order.
+    allowed_qualities: Vec<String>,
+}
+
+impl From<MediaTypeForm> for MediaTypeSettingsInput {
+    fn from(form: MediaTypeForm) -> Self {
+        Self {
+            categories: form.categories,
+            download_folder: form.download_folder,
+            allowed_qualities: form
+                .allowed_qualities
+                .iter()
+                .filter_map(|id| Quality::from_id(id))
+                .collect(),
+        }
+    }
+}
+
 #[derive(Template)]
 #[template(path = "partials/test_result.html")]
 struct TestResult {
@@ -179,38 +239,27 @@ pub async fn save_indexer(State(api): State<ApiClient>, Form(form): Form<Indexer
         .put::<_, IndexerSettingsView>("/api/settings/indexer", &input)
         .await
     {
-        Ok(saved) => {
-            let card = IndexerCard::load(&api, saved).await;
-            render_all(&[&card, &Toast::success("Prowlarr settings saved")])
-        }
+        Ok(settings) => render_all(&[
+            &IndexerCard { settings },
+            &Toast::success("Prowlarr settings saved"),
+        ]),
         Err(err) => keep_form(Toast::error(err)),
     }
 }
 
 pub async fn test_indexer(State(api): State<ApiClient>, Form(form): Form<IndexerForm>) -> Response {
     let input = IndexerSettingsInput::from(form);
-    match api
+    let outcome = api
         .post::<_, IndexerTestResult>("/api/settings/indexer/test", &input)
-        .await
-    {
-        Ok(result) => {
-            let badge = TestResult {
-                dom_id: "indexer-test",
-                ok: true,
-                message: format!("Connected to Prowlarr {}", result.version),
-            };
-            let categories = CategoryChoices {
-                out_of_band: true,
-                ..CategoryChoices::new("indexer-categories", result.categories, &input.categories)
-            };
-            render_all(&[&badge, &categories])
-        }
-        Err(err) => render(TestResult {
-            dom_id: "indexer-test",
-            ok: false,
-            message: err.message,
-        }),
-    }
+        .await;
+    render(TestResult {
+        dom_id: "indexer-test",
+        ok: outcome.is_ok(),
+        message: match outcome {
+            Ok(result) => format!("Connected to Prowlarr {}", result.version),
+            Err(err) => err.message,
+        },
+    })
 }
 
 pub async fn save_download_client(
@@ -246,6 +295,26 @@ pub async fn test_download_client(
             Err(err) => err.message,
         },
     })
+}
+
+pub async fn save_media_type(
+    State(api): State<ApiClient>,
+    Path(media_type): Path<String>,
+    Form(form): Form<MediaTypeForm>,
+) -> Response {
+    let Some(media_type) = MediaType::from_id(&media_type) else {
+        return keep_form(Toast::error("unknown media type"));
+    };
+    let input = MediaTypeSettingsInput::from(form);
+    let uri = format!("/api/settings/media-types/{media_type}");
+    match api.put::<_, MediaTypeSettingsView>(&uri, &input).await {
+        Ok(settings) => {
+            let toast = Toast::success(format!("{} settings saved", settings.label));
+            let card = MediaTypeCard::new(settings, &fetch_categories(&api).await);
+            render_all(&[&card, &toast])
+        }
+        Err(err) => keep_form(Toast::error(err)),
+    }
 }
 
 /// Shows the toast but leaves the form untouched so the user can fix the input.

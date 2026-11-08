@@ -8,7 +8,7 @@
   <table class="table">
     <thead>
       <tr>
-        <th>Title</th><th>Indexer</th><th class="num">Age</th><th class="num">Size</th>
+        <th>Title</th><th>Quality</th><th>Indexer</th><th class="num">Age</th><th class="num">Size</th>
         <th class="num">Peers</th><th></th>
       </tr>
     </thead>
@@ -19,6 +19,10 @@
           {% if let Some(url) = row.info_url %}
           <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ row.title }}</a>
           {% else %}{{ row.title }}{% endif %}
+          {% if !row.media_type.is_empty() %}<span class="media-type">{{ row.media_type }}</span>{% endif %}
+        </td>
+        <td class="quality">
+          {% if !row.quality.is_empty() %}<span class="pill">{{ row.quality }}</span>{% endif %}
         </td>
         <td>{{ row.indexer }}</td>
         <td class="num">{{ row.age }}</td>

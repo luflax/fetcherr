@@ -28,4 +28,6 @@ pub struct TorrentInfo {
     pub num_leechs: i64,
     #[serde(default)]
     pub save_path: String,
+    #[serde(default)]
+    pub category: String,
 }

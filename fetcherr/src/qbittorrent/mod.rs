@@ -6,7 +6,7 @@ use reqwest::multipart::{Form, Part};
 use reqwest::{RequestBuilder, Response, StatusCode, Url, header};
 use tokio::sync::Mutex;
 
-use crate::domain::{Download, DownloadId, DownloadState};
+use crate::domain::{Download, DownloadId, DownloadState, MediaType};
 use crate::settings::DownloadClientSettings;
 use crate::torrent::TorrentPayload;
 use crate::upstream::{UpstreamError, ensure_success, parse_base_url};
@@ -36,6 +36,7 @@ pub struct AddTorrent<'a> {
     pub payload: &'a TorrentPayload,
     pub save_path: &'a str,
     pub tag: &'a str,
+    pub category: Option<&'a str>,
 }
 
 impl QbittorrentClient {
@@ -87,8 +88,7 @@ impl QbittorrentClient {
             params.push(("tag", tag.to_string()));
         }
         if let Some(ids) = ids {
-            let hashes: Vec<&str> = ids.iter().map(DownloadId::as_str).collect();
-            params.push(("hashes", hashes.join("|")));
+            params.push(("hashes", join_hashes(ids)));
         }
         let response = self
             .send(
@@ -101,6 +101,44 @@ impl QbittorrentClient {
             .await
             .map_err(|err| UpstreamError::new(SERVICE, format!("unexpected response: {err}")))?;
         Ok(torrents.into_iter().filter_map(to_download).collect())
+    }
+
+    /// Pauses torrents (`stop` is the 5.x name of `pause`).
+    pub async fn stop(&self, ids: &[DownloadId]) -> Result<(), UpstreamError> {
+        self.post_hashes("api/v2/torrents/stop", ids, &[]).await
+    }
+
+    /// Resumes torrents (`start` is the 5.x name of `resume`).
+    pub async fn start(&self, ids: &[DownloadId]) -> Result<(), UpstreamError> {
+        self.post_hashes("api/v2/torrents/start", ids, &[]).await
+    }
+
+    pub async fn delete(
+        &self,
+        ids: &[DownloadId],
+        delete_files: bool,
+    ) -> Result<(), UpstreamError> {
+        let delete_files = if delete_files { "true" } else { "false" };
+        self.post_hashes(
+            "api/v2/torrents/delete",
+            ids,
+            &[("deleteFiles", delete_files)],
+        )
+        .await
+    }
+
+    async fn post_hashes(
+        &self,
+        path: &str,
+        ids: &[DownloadId],
+        extra: &[(&str, &str)],
+    ) -> Result<(), UpstreamError> {
+        let hashes = join_hashes(ids);
+        let mut form = vec![("hashes", hashes.as_str())];
+        form.extend_from_slice(extra);
+        self.send(|url| self.http.post(url).form(&form), path)
+            .await
+            .map(drop)
     }
 
     /// Sends an authenticated request, logging in first and once more if the session expired.
@@ -194,12 +232,22 @@ fn add_form(torrent: &AddTorrent<'_>) -> Form {
             Form::new().part("torrents", part)
         }
     };
-    let form = form.text("tags", torrent.tag.to_string());
-    if torrent.save_path.is_empty() {
-        form
-    } else {
-        form.text("savepath", torrent.save_path.to_string())
+    // Explicit save path wins even when qBittorrent defaults to Automatic Torrent Management.
+    let mut form = form
+        .text("tags", torrent.tag.to_string())
+        .text("autoTMM", "false");
+    if let Some(category) = torrent.category {
+        form = form.text("category", category.to_string());
     }
+    if !torrent.save_path.is_empty() {
+        form = form.text("savepath", torrent.save_path.to_string());
+    }
+    form
+}
+
+fn join_hashes(ids: &[DownloadId]) -> String {
+    let hashes: Vec<&str> = ids.iter().map(DownloadId::as_str).collect();
+    hashes.join("|")
 }
 
 /// Picks the session cookie (`SID`, or a custom `*SID*` name) as a `name=value` pair.
@@ -244,6 +292,7 @@ fn to_download(torrent: dto::TorrentInfo) -> Option<Download> {
         seeds: non_negative(torrent.num_seeds) as u32,
         peers: non_negative(torrent.num_leechs) as u32,
         save_path: torrent.save_path,
+        media_type: MediaType::from_id(&torrent.category),
     })
 }
 
@@ -314,7 +363,7 @@ mod tests {
                     "hash": HASH, "name": "debian.iso", "state": "downloading",
                     "progress": 0.5, "size": 100, "completed": 50, "dlspeed": 10,
                     "upspeed": 0, "eta": 8640000, "num_seeds": 3, "num_leechs": 1,
-                    "save_path": "/downloads"
+                    "save_path": "/downloads", "category": "series"
                 }])),
             )
             .mount(&server)
@@ -329,6 +378,7 @@ mod tests {
         assert_eq!(downloads[0].id.as_str(), HASH);
         assert_eq!(downloads[0].state, DownloadState::Downloading);
         assert_eq!(downloads[0].eta_secs, None);
+        assert_eq!(downloads[0].media_type, Some(MediaType::Series));
     }
 
     #[tokio::test]
@@ -383,6 +433,8 @@ mod tests {
             .and(body_string_contains("magnet:?xt=urn:btih:"))
             .and(body_string_contains("fetcherr"))
             .and(body_string_contains("/media/movies"))
+            .and(body_string_contains("name=\"category\"\r\n\r\nmovies"))
+            .and(body_string_contains("name=\"autoTMM\"\r\n\r\nfalse"))
             .respond_with(ResponseTemplate::new(200).set_body_string("Ok."))
             .expect(1)
             .mount(&server)
@@ -394,8 +446,38 @@ mod tests {
                 payload: &payload,
                 save_path: "/media/movies",
                 tag: "fetcherr",
+                category: Some("movies"),
             })
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn stops_starts_and_deletes_by_hash() {
+        let server = MockServer::start().await;
+        mount_login(&server, "abc").await;
+        for action in ["stop", "start"] {
+            Mock::given(method("POST"))
+                .and(path(format!("/api/v2/torrents/{action}")))
+                .and(body_string_contains(format!("hashes={HASH}")))
+                .respond_with(ResponseTemplate::new(200))
+                .expect(1)
+                .mount(&server)
+                .await;
+        }
+        Mock::given(method("POST"))
+            .and(path("/api/v2/torrents/delete"))
+            .and(body_string_contains(format!("hashes={HASH}")))
+            .and(body_string_contains("deleteFiles=true"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = client(&server);
+        let ids = [DownloadId::try_from(HASH.to_string()).unwrap()];
+        client.stop(&ids).await.unwrap();
+        client.start(&ids).await.unwrap();
+        client.delete(&ids, true).await.unwrap();
     }
 }

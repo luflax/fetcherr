@@ -6,6 +6,7 @@ mod error;
 mod integrations;
 mod prowlarr;
 mod qbittorrent;
+mod quality;
 mod releases;
 mod search;
 mod server;

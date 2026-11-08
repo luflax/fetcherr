@@ -3,15 +3,14 @@
 {% block content %}
 <div class="page-header">
   <h1>Downloads</h1>
-  <span id="live-status" class="live">connecting…</span>
 </div>
 
 <div class="table-wrap card flush">
   <table class="table">
     <thead>
       <tr>
-        <th>Name</th><th>Status</th><th class="progress-col">Progress</th>
-        <th class="num">Size</th><th class="num">Speed</th><th class="num">ETA</th><th class="num">Peers</th>
+        <th>Name</th><th>Type</th><th>Status</th><th class="progress-col">Progress</th>
+        <th class="num">Size</th><th class="num">Speed</th><th class="num">ETA</th><th class="num">Peers</th><th class="row-actions"></th>
       </tr>
     </thead>
     <tbody id="download-rows" hx-get="downloads/rows" hx-trigger="refresh">
@@ -19,6 +18,19 @@
     </tbody>
   </table>
 </div>
+
+<dialog id="delete-dialog" class="card dialog">
+  <form hx-post="downloads/delete" hx-swap="none">
+    <h2>Delete download</h2>
+    <p>Remove <strong data-field="name"></strong> from qBittorrent?</p>
+    <input type="hidden" name="id">
+    <label class="choice"><input type="checkbox" name="delete_files"> Also delete the downloaded files</label>
+    <div class="card-actions">
+      <button type="submit" class="button danger">Delete</button>
+      <button type="button" class="button" data-close>Cancel</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}
 {% block scripts %}
 <script src="static/downloads.js?v={{ layout.version }}" defer></script>

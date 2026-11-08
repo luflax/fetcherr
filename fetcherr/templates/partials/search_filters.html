@@ -1,0 +1,17 @@
+<div id="search-filters" class="search-filters">
+  <div class="field">Categories
+    {{ categories|safe }}
+  </div>
+  {% if let Some(qualities) = qualities %}
+  <div class="field">Qualities
+    <div class="choices">
+      {% for quality in qualities %}
+      <label class="choice">
+        <input type="checkbox" name="qualities" value="{{ quality.id }}" {% if quality.checked %}checked{% endif %}>
+        {{ quality.label }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>

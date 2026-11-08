@@ -1,11 +1,12 @@
 {% if let Some(error) = error %}
-<tr class="placeholder"><td colspan="7"><p class="notice error">{{ error }}</p></td></tr>
+<tr class="placeholder"><td colspan="9"><p class="notice error">{{ error }}</p></td></tr>
 {% else if rows.is_empty() %}
-<tr class="placeholder"><td colspan="7"><p class="empty">Nothing downloading yet. <a href="./">Search</a> for something.</p></td></tr>
+<tr class="placeholder"><td colspan="9"><p class="empty">Nothing downloading yet. <a href="./">Search</a> for something.</p></td></tr>
 {% else %}
 {% for row in rows %}
-<tr data-id="{{ row.id }}">
+<tr data-id="{{ row.id }}"{% if row.stopped %} class="stopped"{% endif %}>
   <td class="title">{{ row.name }}</td>
+  <td class="muted">{{ row.media_type }}</td>
   <td><span class="pill {{ row.state }}" data-field="state">{{ row.state_label }}</span></td>
   <td class="progress-col">
     <div class="progress"><div class="progress-bar {{ row.state }}" data-field="bar" style="width: {{ row.percent }}%"></div></div>
@@ -15,6 +16,17 @@
   <td class="num" data-field="speed">{{ row.speed }}</td>
   <td class="num" data-field="eta">{{ row.eta }}</td>
   <td class="num" data-field="peers">{{ row.seeds }} / {{ row.peers }}</td>
+  <td class="row-actions">
+    <button type="button" class="icon-button pause" hx-post="downloads/{{ row.id }}/pause" hx-swap="none" title="Pause" aria-label="Pause">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14" /></svg>
+    </button>
+    <button type="button" class="icon-button resume" hx-post="downloads/{{ row.id }}/resume" hx-swap="none" title="Resume" aria-label="Resume">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15L19 12z" /></svg>
+    </button>
+    <button type="button" class="icon-button danger" data-delete="{{ row.id }}" data-name="{{ row.name }}" title="Delete" aria-label="Delete">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+    </button>
+  </td>
 </tr>
 {% endfor %}
 {% endif %}
