@@ -1,8 +1,9 @@
 # fetcherr
 
-A lean replacement for the parts of Radarr/Sonarr I use: search releases through **Prowlarr**,
-download them with **qBittorrent**, and follow progress live. Rust backend with a REST API
-(Swagger), a WebSocket and an htmx web UI, packaged as a Home Assistant add-on.
+A lean replacement for the parts of Radarr/Sonarr (and Jellyseerr) I use: browse **TMDB**,
+request movies and series, find releases through **Prowlarr**, download them with
+**qBittorrent**, import them into **Jellyfin** and follow everything live. Rust backend with a
+REST API (Swagger), WebSockets, SQLite and an htmx web UI, packaged as a Home Assistant add-on.
 
 Architecture and coding guidelines: [AGENTS.md](AGENTS.md).
 
@@ -19,12 +20,13 @@ Architecture and coding guidelines: [AGENTS.md](AGENTS.md).
 ```sh
 cd fetcherr
 cargo test
-cargo run            # http://localhost:8734 (PORT=...), settings in ./data (DATA_DIR=...)
+cargo run            # http://localhost:8734 (PORT=...), settings + database in ./data (DATA_DIR=...)
 ```
 
 - UI: <http://localhost:8734/>
 - Swagger: <http://localhost:8734/docs/>
-- Live feed: `ws://localhost:8734/api/ws/downloads`
+- API key: generated on first start, shown under Settings (also in `./data/settings.json`)
+- Live events: `ws://localhost:8734/api/ws/events?api_key=<key>`
 
 ### Local Docker stack
 

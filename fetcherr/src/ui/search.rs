@@ -156,7 +156,7 @@ pub async fn page(
 ) -> Response {
     let filters = SearchFilters::load(&api, &form).await;
     render(SearchPage {
-        layout: Layout::new(base, "search"),
+        layout: Layout::load(&api, base, "search").await,
         form,
         media_types: media_type_options(),
         filters,

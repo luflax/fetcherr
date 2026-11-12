@@ -30,6 +30,11 @@ impl DownloadMonitor {
     pub fn subscribe(&self) -> watch::Receiver<Snapshot> {
         self.sender.subscribe()
     }
+
+    /// The last published snapshot, without starting a poll (fresh only while watched).
+    pub fn latest(&self) -> Snapshot {
+        self.sender.borrow().clone()
+    }
 }
 
 async fn poll_while_watched(

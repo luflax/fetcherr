@@ -1,0 +1,12 @@
+<form id="api-key-card" class="card settings-card"
+      hx-post="settings/api-key/regenerate" hx-target="this" hx-swap="outerHTML"
+      hx-confirm="Clients using the current key will stop working. Generate a new key?">
+  <h2>API key</h2>
+  <span class="hint">Every /api request needs it, in the X-Api-Key header or the api_key query parameter.</span>
+  <label class="field">Key
+    <input class="input mono" type="text" value="{{ key }}" readonly onclick="this.select()">
+  </label>
+  <div class="card-actions">
+    <button class="button" type="submit">Generate a new key</button>
+  </div>
+</form>

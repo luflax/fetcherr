@@ -1,5 +1,8 @@
 //! User settings edited from the UI. Stored as JSON; secrets are write-only in the API.
 
+pub mod layout;
+mod library;
+mod services;
 mod store;
 
 use serde::{Deserialize, Serialize};
@@ -9,6 +12,13 @@ use crate::domain::{Category, MediaType};
 use crate::error::AppError;
 use crate::quality::Quality;
 
+pub use layout::{Layout, LayoutInput, ListSource};
+pub use library::{ImportMode, LibrarySettings, PathMapping};
+pub use services::{
+    DEFAULT_SYNC_MINUTES, JellyfinSettings, JellyfinSettingsInput, JellyfinSettingsView,
+    OmdbSettings, OmdbSettingsInput, OmdbSettingsView, TmdbSettings, TmdbSettingsInput,
+    TmdbSettingsView, VersionTestResult,
+};
 pub use store::SettingsStore;
 
 pub const DEFAULT_POLL_INTERVAL_MS: u64 = 1000;
@@ -20,6 +30,35 @@ pub struct Settings {
     pub indexer: IndexerSettings,
     pub download_client: DownloadClientSettings,
     pub media: MediaSettings,
+    pub tmdb: TmdbSettings,
+    pub omdb: OmdbSettings,
+    pub jellyfin: JellyfinSettings,
+    pub library: LibrarySettings,
+    pub layout: Layout,
+    pub api: ApiSettings,
+}
+
+/// The key every `/api` request must carry (`X-Api-Key` header or `api_key` query parameter).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ApiSettings {
+    pub key: String,
+}
+
+impl ApiSettings {
+    /// 32 random bytes as hex.
+    pub fn generate_key() -> Result<String, AppError> {
+        let mut bytes = [0u8; 32];
+        getrandom::fill(&mut bytes)
+            .map_err(|err| AppError::Internal(format!("cannot generate an API key: {err}")))?;
+        Ok(hex::encode(bytes))
+    }
+}
+
+/// The API key, shown to whoever already holds it (or to the built-in UI).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct ApiKeyView {
+    pub key: String,
 }
 
 /// Prowlarr connection.
@@ -306,6 +345,16 @@ fn keep_secret_if_blank(new: Option<String>, current: &str) -> String {
     }
 }
 
+/// An optional URL override: empty stays empty, anything else must be http(s).
+fn optional_url(service: &str, url: &str) -> Result<String, AppError> {
+    let url = url.trim();
+    if url.is_empty() {
+        return Ok(String::new());
+    }
+    require_url(service, url)?;
+    Ok(url.to_string())
+}
+
 fn require_url(service: &str, url: &str) -> Result<(), AppError> {
     let url = url.trim();
     let is_http = url.starts_with("http://") || url.starts_with("https://");
@@ -321,6 +370,13 @@ fn require_url(service: &str, url: &str) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generates_distinct_api_keys() {
+        let first = ApiSettings::generate_key().unwrap();
+        assert_eq!(first.len(), 64);
+        assert_ne!(first, ApiSettings::generate_key().unwrap());
+    }
 
     #[test]
     fn blank_secret_keeps_stored_one() {

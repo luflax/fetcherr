@@ -1,23 +1,25 @@
 //! Remembers where recent search results can be downloaded from, keyed by [`ReleaseId`].
 
-use std::collections::HashMap;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
+use crate::cache::TtlCache;
 use crate::domain::{MediaType, ReleaseId, ReleaseSource};
 
 const TTL: Duration = Duration::from_secs(60 * 60);
+const MAX_RELEASES: usize = 20_000;
 
 /// What a download needs to know about a search result.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CachedRelease {
     pub source: ReleaseSource,
     pub media_type: Option<MediaType>,
+    /// Release name, parsed again when a request uses this release.
+    pub title: String,
 }
 
 pub struct ReleaseCache {
     ttl: Duration,
-    entries: Mutex<HashMap<ReleaseId, (Instant, CachedRelease)>>,
+    entries: TtlCache<ReleaseId, CachedRelease>,
 }
 
 impl Default for ReleaseCache {
@@ -30,31 +32,16 @@ impl ReleaseCache {
     pub fn with_ttl(ttl: Duration) -> Self {
         Self {
             ttl,
-            entries: Mutex::new(HashMap::new()),
+            entries: TtlCache::new(MAX_RELEASES),
         }
     }
 
     pub fn remember(&self, releases: impl IntoIterator<Item = (ReleaseId, CachedRelease)>) {
-        let now = Instant::now();
-        let mut entries = self.lock();
-        entries.retain(|_, (stored_at, _)| now.duration_since(*stored_at) < self.ttl);
-        entries.extend(
-            releases
-                .into_iter()
-                .map(|(id, release)| (id, (now, release))),
-        );
+        self.entries.extend(releases, self.ttl);
     }
 
     pub fn get(&self, id: &ReleaseId) -> Option<CachedRelease> {
-        let entries = self.lock();
-        let (stored_at, release) = entries.get(id)?;
-        (stored_at.elapsed() < self.ttl).then(|| release.clone())
-    }
-
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<ReleaseId, (Instant, CachedRelease)>> {
-        self.entries
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+        self.entries.get(id)
     }
 }
 
@@ -62,15 +49,22 @@ impl ReleaseCache {
 mod tests {
     use super::*;
 
+    fn release(source: ReleaseSource) -> CachedRelease {
+        CachedRelease {
+            source,
+            media_type: Some(MediaType::Movies),
+            title: "Dune.2021.1080p".into(),
+        }
+    }
+
     #[test]
     fn forgets_expired_releases() {
         let cache = ReleaseCache::with_ttl(Duration::ZERO);
         let id = ReleaseId::from_guid(1, "guid");
-        let release = CachedRelease {
-            source: ReleaseSource::Magnet("magnet:?".into()),
-            media_type: None,
-        };
-        cache.remember([(id.clone(), release)]);
+        cache.remember([(
+            id.clone(),
+            release(ReleaseSource::Magnet("magnet:?".into())),
+        )]);
         assert_eq!(cache.get(&id), None);
     }
 
@@ -78,10 +72,9 @@ mod tests {
     fn returns_fresh_releases() {
         let cache = ReleaseCache::default();
         let id = ReleaseId::from_guid(1, "guid");
-        let release = CachedRelease {
-            source: ReleaseSource::TorrentUrl("http://prowlarr/1/download".into()),
-            media_type: Some(MediaType::Movies),
-        };
+        let release = release(ReleaseSource::TorrentUrl(
+            "http://prowlarr/1/download".into(),
+        ));
         cache.remember([(id.clone(), release.clone())]);
         assert_eq!(cache.get(&id), Some(release));
     }

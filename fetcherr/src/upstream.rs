@@ -6,6 +6,8 @@ use std::fmt::Display;
 pub struct UpstreamError {
     pub service: &'static str,
     pub message: String,
+    /// The service answered that the requested item does not exist.
+    pub not_found: bool,
 }
 
 impl UpstreamError {
@@ -13,6 +15,14 @@ impl UpstreamError {
         Self {
             service,
             message: message.to_string(),
+            not_found: false,
+        }
+    }
+
+    pub fn not_found(service: &'static str, message: impl Display) -> Self {
+        Self {
+            not_found: true,
+            ..Self::new(service, message)
         }
     }
 }

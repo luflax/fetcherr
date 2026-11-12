@@ -1,0 +1,46 @@
+<form id="library-card" class="card settings-card wide"
+      hx-post="settings/library" hx-target="this" hx-swap="outerHTML">
+  <h2>Library <span class="muted">import</span></h2>
+  <span class="hint">Folders as Fetcherr sees them (e.g. under /media or /share). Finished downloads are renamed and placed here.</span>
+  <div class="field-row">
+    <label class="field">Movies folder
+      <input class="input" type="text" name="movies_folder" value="{{ settings.movies_folder }}" placeholder="/media/movies">
+    </label>
+    <label class="field">Series folder
+      <input class="input" type="text" name="series_folder" value="{{ settings.series_folder }}" placeholder="/media/series">
+    </label>
+  </div>
+  <div class="field">Import by
+    <div class="choices">
+      <label class="choice"><input type="radio" name="import_mode" value="hardlink" {% if hardlink %}checked{% endif %}> Hardlink (keeps seeding; copies across disks)</label>
+      <label class="choice"><input type="radio" name="import_mode" value="move" {% if !hardlink %}checked{% endif %}> Move (removes the torrent)</label>
+    </div>
+  </div>
+  <label class="field">Path mappings <span class="hint">One per line: qBittorrent path = Fetcherr path</span>
+    <textarea class="input" name="path_mappings" rows="3" placeholder="/downloads = /share/downloads">{{ mappings }}</textarea>
+  </label>
+  <details class="field">
+    <summary>Naming</summary>
+    <span class="hint">Placeholders: {title} {year} {tmdb_id} {season} {episode} {quality}; add :02 to pad, e.g. {season:02}.</span>
+    <div class="field-row">
+      <label class="field">Movie folder
+        <input class="input" type="text" name="movie_folder" value="{{ settings.naming.movie_folder }}">
+      </label>
+      <label class="field">Movie file
+        <input class="input" type="text" name="movie_file" value="{{ settings.naming.movie_file }}">
+      </label>
+      <label class="field">Series folder
+        <input class="input" type="text" name="series_folder_name" value="{{ settings.naming.series_folder }}">
+      </label>
+      <label class="field">Season folder
+        <input class="input" type="text" name="season_folder" value="{{ settings.naming.season_folder }}">
+      </label>
+    </div>
+    <label class="field">Episode file
+      <input class="input" type="text" name="episode_file" value="{{ settings.naming.episode_file }}">
+    </label>
+  </details>
+  <div class="card-actions">
+    <button class="button primary" type="submit">Save</button>
+  </div>
+</form>

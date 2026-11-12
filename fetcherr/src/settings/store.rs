@@ -33,6 +33,21 @@ impl SettingsStore {
         }
     }
 
+    /// Generates and saves the API key on first start.
+    pub async fn ensure_api_key(&self) -> Result<(), AppError> {
+        if !self.get().api.key.is_empty() {
+            return Ok(());
+        }
+        self.update(|settings| {
+            if settings.api.key.is_empty() {
+                settings.api.key = super::ApiSettings::generate_key()?;
+            }
+            Ok(())
+        })
+        .await
+        .map(drop)
+    }
+
     /// Applies `change` to a copy of the settings, persists it atomically and publishes it.
     pub async fn update(
         &self,

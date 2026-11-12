@@ -1,0 +1,15 @@
+<form id="omdb-card" class="card settings-card"
+      hx-post="settings/omdb" hx-target="this" hx-swap="outerHTML">
+  <h2>Ratings <span class="muted">OMDb</span></h2>
+  <span class="hint">Optional: adds IMDb and Rotten Tomatoes scores.</span>
+  <label class="field">API key
+    <input class="input" type="password" name="api_key" autocomplete="off"
+           placeholder="{% if settings.has_api_key %}•••••••• (unchanged){% else %}omdbapi.com/apikey.aspx{% endif %}">
+  </label>
+  <label class="field">URL <span class="hint">Empty uses https://www.omdbapi.com</span>
+    <input class="input" type="url" name="url" value="{{ settings.url }}" placeholder="https://www.omdbapi.com">
+  </label>
+  <div class="card-actions">
+    <button class="button primary" type="submit">Save</button>
+  </div>
+</form>

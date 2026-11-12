@@ -15,6 +15,8 @@ const HASH: &str = "8c212779b4abde7c6bc608063a0d008b7e40ce32";
 struct TestApp {
     router: Router,
     data_dir: std::path::PathBuf,
+    api_key: String,
+    events: crate::events::EventBus,
 }
 
 impl Drop for TestApp {
@@ -27,14 +29,27 @@ impl TestApp {
     async fn new(name: &str) -> Self {
         let data_dir = std::env::temp_dir().join(format!("fetcherr-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&data_dir);
-        let state = AppState::initialize(&data_dir).await;
+        let state = AppState::initialize(&data_dir).await.unwrap();
+        let api_key = state.settings.get().api.key.clone();
+        let events = state.events.clone();
         Self {
             router: crate::app(state),
             data_dir,
+            api_key,
+            events,
         }
     }
 
-    async fn request(&self, request: Request<Body>) -> (StatusCode, String) {
+    /// Sends a request with the API key, like an authenticated client.
+    async fn request(&self, mut request: Request<Body>) -> (StatusCode, String) {
+        request
+            .headers_mut()
+            .insert("x-api-key", self.api_key.parse().unwrap());
+        self.send(request).await
+    }
+
+    /// Sends a request as is.
+    async fn send(&self, request: Request<Body>) -> (StatusCode, String) {
         let response = self.router.clone().oneshot(request).await.unwrap();
         let status = response.status();
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
@@ -550,4 +565,579 @@ async fn downloads_page_has_no_live_indicator() {
     let app = TestApp::new("no-live").await;
     let (_, page) = app.get("/downloads").await;
     assert!(!page.contains("live-status"));
+}
+
+// ---- Catalog, requests and imports ----
+
+fn fixture(name: &str) -> Value {
+    let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+}
+
+/// Polls `check` until it returns `Some`, failing after a few seconds.
+async fn eventually<T, F, Fut>(what: &str, mut check: F) -> T
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Option<T>>,
+{
+    for _ in 0..100 {
+        if let Some(value) = check().await {
+            return value;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    panic!("timed out waiting for {what}");
+}
+
+async fn mock_tmdb() -> MockServer {
+    let server = MockServer::start().await;
+    for (route, file) in [
+        ("/3/movie/11", "tmdb-movie.json"),
+        ("/3/tv/1399", "tmdb-series.json"),
+        ("/3/tv/1399/season/1", "tmdb-season.json"),
+        ("/3/person/31", "tmdb-person.json"),
+        ("/3/search/multi", "tmdb-search-multi.json"),
+    ] {
+        Mock::given(method("GET"))
+            .and(path(route))
+            .respond_with(ResponseTemplate::new(200).set_body_json(fixture(file)))
+            .mount(&server)
+            .await;
+    }
+    // Every list (trending, popular, ...) answers with the trending example.
+    Mock::given(method("GET"))
+        .and(wiremock::matchers::path_regex(
+            r"^/3/(trending|movie|tv)/[a-z_/]+$",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(fixture("tmdb-trending-all.json")))
+        .mount(&server)
+        .await;
+    server
+}
+
+/// Jellyfin holding the given items, accepting rescans.
+async fn mock_jellyfin(items: Value) -> MockServer {
+    let server = MockServer::start().await;
+    let count = items.as_array().map_or(0, Vec::len);
+    Mock::given(method("GET"))
+        .and(path("/Items"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "Items": items, "TotalRecordCount": count, "StartIndex": 0
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/Library/Refresh"))
+        .respond_with(ResponseTemplate::new(204))
+        .mount(&server)
+        .await;
+    server
+}
+
+impl TestApp {
+    async fn configure_catalog(&self, tmdb: &MockServer, jellyfin: &MockServer) {
+        for (uri, body) in [
+            (
+                "/api/settings/tmdb",
+                json!({"url": tmdb.uri(), "api_key": "tmdb-key"}),
+            ),
+            (
+                "/api/settings/jellyfin",
+                json!({"url": jellyfin.uri(), "api_key": "jf-key"}),
+            ),
+        ] {
+            let (status, saved) = self.json(Method::PUT, uri, body).await;
+            assert_eq!(status, StatusCode::OK, "{uri}: {saved}");
+        }
+    }
+}
+
+/// A Prowlarr release with a magnet of `hash_digit` repeated.
+fn release(guid: &str, title: &str, category: u32, seeders: u32, hash_digit: char) -> Value {
+    json!({
+        "guid": guid, "ageHours": 5.0, "size": 2_000_000, "indexerId": 1, "indexer": "Public",
+        "title": title, "publishDate": "2024-01-01T00:00:00Z",
+        "magnetUrl": format!("magnet:?xt=urn:btih:{}", hash_digit.to_string().repeat(40)),
+        "categories": [{"id": category, "name": "x"}], "seeders": seeders, "leechers": 0,
+        "protocol": "torrent"
+    })
+}
+
+async fn mock_prowlarr_with(releases: Value) -> MockServer {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/search"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(releases))
+        .mount(&server)
+        .await;
+    server
+}
+
+/// qBittorrent that accepts torrents and reports `torrents` (and `files` for every hash).
+async fn mock_qbittorrent_with(torrents: Value, files: Value) -> MockServer {
+    let server = MockServer::start().await;
+    Mock::given(path("/api/v2/auth/login"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("Set-Cookie", "SID=s1; path=/")
+                .set_body_string("Ok."),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v2/torrents/add"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("Ok."))
+        .mount(&server)
+        .await;
+    Mock::given(path("/api/v2/torrents/info"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(torrents))
+        .mount(&server)
+        .await;
+    Mock::given(path("/api/v2/torrents/files"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(files))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(wiremock::matchers::path_regex(
+            r"^/api/v2/torrents/(delete|stop|start)$",
+        ))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+    server
+}
+
+#[tokio::test]
+async fn api_needs_the_key_but_health_docs_and_pages_do_not() {
+    let app = TestApp::new("auth").await;
+    let get = |uri: &str| Request::get(uri).body(Body::empty()).unwrap();
+
+    let (status, body) = app.send(get("/api/system/status")).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(body.contains("unauthorized"));
+    let (status, _) = app.send(get("/api/system/status?api_key=wrong")).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = app
+        .send(get(&format!("/api/system/status?api_key={}", app.api_key)))
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = app.send(get("/api/ws/events")).await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the WebSocket needs the key too"
+    );
+
+    assert_eq!(app.send(get("/health")).await.0, StatusCode::OK);
+    assert_eq!(app.send(get("/docs/openapi.json")).await.0, StatusCode::OK);
+    let (status, page) = app.send(get("/settings")).await;
+    assert_eq!(status, StatusCode::OK, "the UI reaches the API in-process");
+    assert!(
+        page.contains(&app.api_key),
+        "the page hands the key to its scripts"
+    );
+
+    let (_, status_body) = app
+        .json(Method::GET, "/api/system/status", Value::Null)
+        .await;
+    assert_eq!(status_body["version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(status_body["services"]["tmdb"], false);
+}
+
+#[tokio::test]
+async fn regenerating_the_api_key_retires_the_old_one() {
+    let app = TestApp::new("api-key").await;
+    let (status, fresh) = app
+        .json(
+            Method::POST,
+            "/api/settings/api-key/regenerate",
+            Value::Null,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let new_key = fresh["key"].as_str().unwrap().to_string();
+    assert_ne!(new_key, app.api_key);
+
+    let request = Request::get("/api/system/status")
+        .header("x-api-key", &new_key)
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(app.send(request).await.0, StatusCode::OK);
+    let (status, _) = app
+        .json(Method::GET, "/api/system/status", Value::Null)
+        .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn discover_pages_show_cards_with_availability_and_etags() {
+    let tmdb = mock_tmdb().await;
+    // The first trending title (Scream VI) is in the library.
+    let jellyfin = mock_jellyfin(json!([
+        {"Id": "jf-scream", "Type": "Movie", "ProviderIds": {"Tmdb": "934433"}}
+    ]))
+    .await;
+    let app = TestApp::new("discover").await;
+    app.configure_catalog(&tmdb, &jellyfin).await;
+
+    let (status, tabs) = app
+        .json(Method::GET, "/api/discover/pages", Value::Null)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(tabs[0]["id"], "home");
+
+    let card = eventually("the library sync", || async {
+        let (_, page) = app
+            .json(
+                Method::GET,
+                "/api/discover/lists/trending?page=1",
+                Value::Null,
+            )
+            .await;
+        let card = page["items"][0].clone();
+        (card["availability"] == "available").then_some((page, card))
+    })
+    .await;
+    let (page, card) = card;
+    assert_eq!(page["page"], 1);
+    assert!(page["total_pages"].as_u64().unwrap() > 0);
+    assert_eq!(card["key"], "movie:934433");
+    assert_eq!(card["jellyfin_item_id"], "jf-scream");
+    assert_eq!(
+        card["poster"]["small"],
+        "https://image.tmdb.org/t/p/w185/wDWwtvkRRlgTiUr6TyLSMX8FCuZ.jpg"
+    );
+
+    let request = Request::get("/api/discover/pages/home")
+        .body(Body::empty())
+        .unwrap();
+    let response = {
+        let mut request = request;
+        request
+            .headers_mut()
+            .insert("x-api-key", app.api_key.parse().unwrap());
+        app.router.clone().oneshot(request).await.unwrap()
+    };
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["cache-control"], "private, max-age=60");
+    let etag = response.headers()["etag"].to_str().unwrap().to_string();
+    let again = Request::get("/api/discover/pages/home")
+        .header("if-none-match", &etag)
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(app.request(again).await.0, StatusCode::NOT_MODIFIED);
+
+    let (status, search) = app
+        .json(
+            Method::GET,
+            "/api/titles/search?query=star%20wars",
+            Value::Null,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(search["items"][0]["result_type"], "title");
+    assert_eq!(search["items"][0]["title"], "Star Wars");
+
+    let (status, person) = app.json(Method::GET, "/api/people/31", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        person["cast"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|credit| credit["role"] == "Forrest Gump")
+    );
+}
+
+#[tokio::test]
+async fn a_movie_request_is_grabbed_downloaded_and_imported() {
+    let app = TestApp::new("movie-request").await;
+    let downloads = app.data_dir.join("downloads");
+    let movies = app.data_dir.join("library").join("movies");
+    let release_name = "Star.Wars.1977.1080p.BluRay.x264-GRP";
+    std::fs::create_dir_all(downloads.join(release_name)).unwrap();
+    std::fs::write(
+        downloads
+            .join(release_name)
+            .join(format!("{release_name}.mkv")),
+        b"video",
+    )
+    .unwrap();
+
+    let hash = "c".repeat(40);
+    let prowlarr = mock_prowlarr_with(json!([
+        release(
+            "other",
+            "Star.Wars.The.Last.Jedi.2017.2160p.WEB-DL",
+            2000,
+            99,
+            'd'
+        ),
+        release("right", release_name, 2000, 10, 'c'),
+    ]))
+    .await;
+    let qbittorrent = mock_qbittorrent_with(
+        json!([{"hash": hash, "name": release_name, "state": "uploading", "progress": 1.0,
+                "size": 5, "completed": 5, "save_path": "/downloads", "category": "movies"}]),
+        json!([{"name": format!("{release_name}/{release_name}.mkv"), "size": 5, "progress": 1, "priority": 1}]),
+    )
+    .await;
+    let (tmdb, jellyfin) = (mock_tmdb().await, mock_jellyfin(json!([])).await);
+    app.configure(&prowlarr, &qbittorrent).await;
+    app.configure_catalog(&tmdb, &jellyfin).await;
+    let (status, _) = app
+        .json(
+            Method::PUT,
+            "/api/settings/library",
+            json!({
+                "movies_folder": movies.to_string_lossy(),
+                "path_mappings": [{"remote": "/downloads", "local": downloads.to_string_lossy()}]
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let mut events = app.events.subscribe();
+
+    let (status, created) = app
+        .json(
+            Method::POST,
+            "/api/requests",
+            json!({"media_type": "movie", "tmdb_id": 11, "scope": {"type": "movie"}}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{created}");
+    assert_eq!(created["title"], "Star Wars");
+    let id = created["id"].as_i64().unwrap();
+
+    let detail = eventually("the import", || async {
+        let (_, detail) = app
+            .json(Method::GET, &format!("/api/requests/{id}"), Value::Null)
+            .await;
+        (detail["state"] == "available").then_some(detail)
+    })
+    .await;
+    assert_eq!(
+        detail["torrents"][0]["id"], hash,
+        "the matching title, not the higher-seeded other one"
+    );
+    assert_eq!(detail["torrents"][0]["state"], "imported");
+    let imported = movies
+        .join("Star Wars (1977) [tmdbid-11]")
+        .join("Star Wars (1977).mkv");
+    assert_eq!(std::fs::read(&imported).unwrap(), b"video");
+    assert!(
+        downloads
+            .join(release_name)
+            .join(format!("{release_name}.mkv"))
+            .exists(),
+        "hardlinked, still seeding"
+    );
+
+    let (status, again) = app
+        .json(
+            Method::POST,
+            "/api/requests",
+            json!({"media_type": "movie", "tmdb_id": 11, "scope": {"type": "movie"}}),
+        )
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the same request is not created twice"
+    );
+    assert_eq!(again["id"], id);
+
+    use crate::requests::RequestState;
+    let mut states = Vec::new();
+    let finished = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while let Ok(event) = events.recv().await {
+            if let crate::events::Event::RequestUpdated { request } = event {
+                states.push(request.state);
+                if request.state == RequestState::Available {
+                    return;
+                }
+            }
+        }
+    })
+    .await;
+    assert!(finished.is_ok(), "no available event, got {states:?}");
+    assert!(states.contains(&RequestState::Downloading));
+    assert!(states.contains(&RequestState::Importing));
+
+    let (_, movie) = app.json(Method::GET, "/api/movies/11", Value::Null).await;
+    assert_eq!(movie["card"]["availability"], "available");
+    assert_eq!(movie["requests"][0]["state"], "available");
+
+    let (_, list) = app
+        .json(
+            Method::GET,
+            "/api/requests?state=available&page=1",
+            Value::Null,
+        )
+        .await;
+    assert_eq!(list["total_results"], 1);
+
+    let (status, _) = app
+        .json(
+            Method::DELETE,
+            &format!("/api/requests/{id}?delete_files=true"),
+            Value::Null,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(
+        !imported.exists(),
+        "imported files are deleted with the request"
+    );
+}
+
+#[tokio::test]
+async fn a_partly_available_season_grabs_only_the_missing_episodes() {
+    let app = TestApp::new("season-request").await;
+    let prowlarr = mock_prowlarr_with(json!([
+        release(
+            "pack",
+            "Game.of.Thrones.S01.1080p.BluRay.x264",
+            5000,
+            50,
+            'e'
+        ),
+        release(
+            "e03",
+            "Game.of.Thrones.S01E03.1080p.WEB.h264",
+            5000,
+            20,
+            'f'
+        ),
+        release(
+            "other",
+            "House.of.the.Dragon.S01E03.1080p.WEB",
+            5000,
+            90,
+            '9'
+        ),
+    ]))
+    .await;
+    let downloading = |digit: char| {
+        json!({
+            "hash": digit.to_string().repeat(40), "name": "x", "state": "downloading", "progress": 0.1,
+            "size": 100, "completed": 10, "save_path": "/downloads", "category": "series"
+        })
+    };
+    let qbittorrent =
+        mock_qbittorrent_with(json!([downloading('e'), downloading('f')]), json!([])).await;
+    let tmdb = mock_tmdb().await;
+    let jellyfin = mock_jellyfin(fixture("jellyfin-items.json")["Items"].clone()).await;
+    app.configure(&prowlarr, &qbittorrent).await;
+    app.configure_catalog(&tmdb, &jellyfin).await;
+
+    let season = eventually("the library sync", || async {
+        let (_, season) = app
+            .json(Method::GET, "/api/series/1399/seasons/1", Value::Null)
+            .await;
+        (season["availability"] == "partially_available").then_some(season)
+    })
+    .await;
+    assert_eq!(season["episodes"][0]["availability"], "available");
+    assert_eq!(season["episodes"][2]["availability"], "unavailable");
+
+    let (status, created) = app
+        .json(Method::POST, "/api/requests", json!({"media_type": "series", "tmdb_id": 1399, "scope": {"type": "season", "season": 1}}))
+        .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{created}");
+    let id = created["id"].as_i64().unwrap();
+
+    let detail = eventually("the grabs", || async {
+        let (_, detail) = app
+            .json(Method::GET, &format!("/api/requests/{id}"), Value::Null)
+            .await;
+        (detail["state"] == "downloading").then_some(detail)
+    })
+    .await;
+    let torrents = detail["torrents"].as_array().unwrap();
+    assert_eq!(torrents.len(), 2, "{detail}");
+    let coverage_of = |hash_digit: char| {
+        let hash = hash_digit.to_string().repeat(40);
+        torrents
+            .iter()
+            .find(|torrent| torrent["id"] == hash.as_str())
+            .unwrap()["coverage"]
+            .clone()
+    };
+    assert_eq!(
+        coverage_of('f'),
+        json!({"type": "episodes", "season": 1, "episodes": [3]})
+    );
+    assert_eq!(
+        coverage_of('e'),
+        json!({"type": "episodes", "season": 1, "episodes": [4, 5, 6, 7, 8, 9, 10]}),
+        "the pack only fills the episodes nobody released alone"
+    );
+
+    let (_, season) = app
+        .json(Method::GET, "/api/series/1399/seasons/1", Value::Null)
+        .await;
+    assert_eq!(season["availability"], "downloading");
+    assert_eq!(season["episodes"][4]["request_state"], "downloading");
+
+    let (status, releases) = app
+        .json(
+            Method::GET,
+            "/api/series/1399/releases?season=1&episode=3",
+            Value::Null,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let titles: Vec<&str> = releases
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["title"].as_str().unwrap())
+        .collect();
+    assert!(titles.contains(&"Game.of.Thrones.S01E03.1080p.WEB.h264"));
+    assert!(
+        !titles.iter().any(|title| title.starts_with("House")),
+        "other titles are dropped"
+    );
+}
+
+#[tokio::test]
+async fn layout_settings_are_validated_and_ordered() {
+    let app = TestApp::new("layout").await;
+    let (status, layout) = app
+        .json(
+            Method::PUT,
+            "/api/settings/layout",
+            json!({"pages": [
+                {"name": "Anime", "lists": [
+                    {"title": "Popular anime", "source": {"kind": "discover", "media": "series"},
+                     "filters": {"genres": [16], "original_language": "ja"}},
+                    {"title": "Trending", "source": {"kind": "trending"}}
+                ]}
+            ]}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{layout}");
+    assert_eq!(layout["pages"][0]["id"], "anime");
+    assert_eq!(layout["pages"][0]["lists"][0]["id"], "popular-anime");
+
+    let (_, tabs) = app
+        .json(Method::GET, "/api/discover/pages", Value::Null)
+        .await;
+    assert_eq!(tabs, json!([{"id": "anime", "name": "Anime"}]));
+
+    let (status, _) = app
+        .json(
+            Method::PUT,
+            "/api/settings/layout",
+            json!({"pages": [{"name": " ", "lists": []}]}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (_, page) = app.get("/settings").await;
+    assert!(
+        page.contains("Popular anime"),
+        "the editor shows the saved lists"
+    );
 }

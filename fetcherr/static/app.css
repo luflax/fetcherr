@@ -180,6 +180,29 @@ tr.stopped .icon-button.pause, tr:not(.stopped) .icon-button.resume { display: n
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; align-items: start; }
 .card-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
 
+/* ---- Settings: library and discover layout ---- */
+
+.settings-card.wide { grid-column: 1 / -1; }
+.settings-card > .hint { display: block; margin: -8px 0 14px; color: var(--muted); }
+textarea.input { resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.input.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+details.field summary { cursor: pointer; color: var(--text); margin-bottom: 10px; }
+
+.layout-pages { display: flex; flex-direction: column; gap: 14px; }
+.layout-page { margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); }
+.layout-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.layout-row .input { width: auto; flex: 1 1 140px; min-width: 0; }
+.layout-page-name { font-weight: 600; }
+.layout-buttons { display: inline-flex; margin-left: auto; }
+.layout-lists { list-style: none; margin: 10px 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); }
+.layout-lists:empty { display: none; }
+.layout-list { padding: 8px 10px; border-top: 1px solid var(--border); }
+.layout-list:first-child { border-top: 0; }
+.layout-list:first-child [data-action="up"], .layout-list:last-child [data-action="down"],
+.layout-page:first-child > .layout-row [data-action="up"], .layout-page:last-child > .layout-row [data-action="down"] { visibility: hidden; }
+.layout-filters summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 6px; }
+.layout-filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; margin-top: 10px; }
+
 /* ---- Toasts ---- */
 
 .toasts { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }

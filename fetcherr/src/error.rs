@@ -16,6 +16,10 @@ pub enum AppError {
     NotFound(String),
     #[error("{0}")]
     Invalid(String),
+    #[error("missing or wrong API key")]
+    Unauthorized,
+    #[error("{0}")]
+    Conflict(String),
     #[error(transparent)]
     Upstream(#[from] UpstreamError),
     #[error("internal error: {0}")]
@@ -29,6 +33,9 @@ impl AppError {
             Self::ReleaseExpired => StatusCode::GONE,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::Conflict(_) => StatusCode::CONFLICT,
+            Self::Upstream(err) if err.not_found => StatusCode::NOT_FOUND,
             Self::Upstream(_) => StatusCode::BAD_GATEWAY,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -40,9 +47,18 @@ impl AppError {
             Self::ReleaseExpired => "release_expired",
             Self::NotFound(_) => "not_found",
             Self::Invalid(_) => "invalid",
+            Self::Unauthorized => "unauthorized",
+            Self::Conflict(_) => "conflict",
+            Self::Upstream(err) if err.not_found => "not_found",
             Self::Upstream(_) => "upstream",
             Self::Internal(_) => "internal",
         }
+    }
+}
+
+impl From<sqlx::Error> for AppError {
+    fn from(err: sqlx::Error) -> Self {
+        Self::Internal(format!("database: {err}"))
     }
 }
 

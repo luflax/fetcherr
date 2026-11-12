@@ -6,11 +6,15 @@ use std::time::Duration;
 use reqwest::redirect;
 
 use crate::error::AppError;
+use crate::jellyfin::JellyfinClient;
+use crate::omdb::OmdbClient;
 use crate::prowlarr::ProwlarrClient;
 use crate::qbittorrent::QbittorrentClient;
 use crate::settings::{
-    DownloadClientSettings, DownloadClientTestResult, IndexerSettings, IndexerTestResult, Settings,
+    DownloadClientSettings, DownloadClientTestResult, IndexerSettings, IndexerTestResult,
+    JellyfinSettings, Settings, TmdbSettings, VersionTestResult,
 };
+use crate::tmdb::TmdbClient;
 
 /// qBittorrent tag marking the torrents Fetcherr manages.
 pub const DOWNLOAD_TAG: &str = "fetcherr";
@@ -50,23 +54,64 @@ fn install_tls_provider() {
 pub struct Integrations {
     prowlarr: Option<ProwlarrClient>,
     qbittorrent: Option<QbittorrentClient>,
+    tmdb: Option<TmdbClient>,
+    jellyfin: Option<JellyfinClient>,
+    omdb: Option<OmdbClient>,
 }
 
 impl Integrations {
     pub fn build(http: &reqwest::Client, settings: &Settings) -> Self {
-        let prowlarr = settings
-            .indexer
-            .is_configured()
-            .then(|| ProwlarrClient::new(http.clone(), &settings.indexer))
-            .and_then(log_invalid);
-        let qbittorrent = settings
-            .download_client
-            .is_configured()
-            .then(|| QbittorrentClient::new(http.clone(), &settings.download_client))
-            .and_then(log_invalid);
         Self {
-            prowlarr,
-            qbittorrent,
+            prowlarr: settings
+                .indexer
+                .is_configured()
+                .then(|| ProwlarrClient::new(http.clone(), &settings.indexer))
+                .and_then(log_invalid),
+            qbittorrent: settings
+                .download_client
+                .is_configured()
+                .then(|| QbittorrentClient::new(http.clone(), &settings.download_client))
+                .and_then(log_invalid),
+            tmdb: settings
+                .tmdb
+                .is_configured()
+                .then(|| TmdbClient::new(http.clone(), &settings.tmdb))
+                .and_then(log_invalid),
+            jellyfin: settings
+                .jellyfin
+                .is_configured()
+                .then(|| JellyfinClient::new(http.clone(), &settings.jellyfin))
+                .and_then(log_invalid),
+            omdb: settings
+                .omdb
+                .is_configured()
+                .then(|| OmdbClient::new(http.clone(), &settings.omdb))
+                .and_then(log_invalid),
+        }
+    }
+
+    pub fn tmdb(&self) -> Result<&TmdbClient, AppError> {
+        self.tmdb.as_ref().ok_or(AppError::NotConfigured("TMDB"))
+    }
+
+    pub fn jellyfin(&self) -> Result<&JellyfinClient, AppError> {
+        self.jellyfin
+            .as_ref()
+            .ok_or(AppError::NotConfigured("Jellyfin"))
+    }
+
+    pub fn omdb(&self) -> Result<&OmdbClient, AppError> {
+        self.omdb.as_ref().ok_or(AppError::NotConfigured("OMDb"))
+    }
+
+    /// Which services have usable settings.
+    pub fn configured(&self) -> ConfiguredServices {
+        ConfiguredServices {
+            prowlarr: self.prowlarr.is_some(),
+            qbittorrent: self.qbittorrent.is_some(),
+            tmdb: self.tmdb.is_some(),
+            jellyfin: self.jellyfin.is_some(),
+            omdb: self.omdb.is_some(),
         }
     }
 
@@ -81,6 +126,15 @@ impl Integrations {
             .as_ref()
             .ok_or(AppError::NotConfigured("qBittorrent"))
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, utoipa::ToSchema)]
+pub struct ConfiguredServices {
+    pub prowlarr: bool,
+    pub qbittorrent: bool,
+    pub tmdb: bool,
+    pub jellyfin: bool,
+    pub omdb: bool,
 }
 
 fn log_invalid<T>(client: Result<T, crate::upstream::UpstreamError>) -> Option<T> {
@@ -130,6 +184,21 @@ pub async fn test_qbittorrent(
 ) -> Result<DownloadClientTestResult, AppError> {
     let client = QbittorrentClient::new(http.clone(), settings)?;
     Ok(DownloadClientTestResult {
+        version: client.version().await?,
+    })
+}
+
+pub async fn test_tmdb(http: &reqwest::Client, settings: &TmdbSettings) -> Result<(), AppError> {
+    TmdbClient::new(http.clone(), settings)?.check().await?;
+    Ok(())
+}
+
+pub async fn test_jellyfin(
+    http: &reqwest::Client,
+    settings: &JellyfinSettings,
+) -> Result<VersionTestResult, AppError> {
+    let client = JellyfinClient::new(http.clone(), settings)?;
+    Ok(VersionTestResult {
         version: client.version().await?,
     })
 }

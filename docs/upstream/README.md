@@ -7,6 +7,9 @@ writing or changing the provider DTOs (`fetcherr/src/*/dto.rs`).
 |------|--------|---------|
 | `prowlarr-openapi.json` | <https://raw.githubusercontent.com/Prowlarr/Prowlarr/develop/src/Prowlarr.Api.V1/openapi.json> | 2026-11-07 |
 | `qbittorrent-webui-api-5.0.md` | <https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)> (raw wiki markdown) | 2026-11-07 |
+| `tmdb-v3-openapi.json` | <https://developer.themoviedb.org/openapi/tmdb-api.json> | 2026-11-12 |
+| `jellyfin-openapi-stable.json` | <https://api.jellyfin.org/openapi/jellyfin-openapi-stable.json> (Jellyfin 12.4.0) | 2026-11-12 |
+| `omdb-swagger.json` | <https://www.omdbapi.com/swagger.json> | 2026-11-12 |
 
 Refresh them when upgrading a provider:
 
@@ -33,3 +36,13 @@ The code handles these explicitly:
   (checked on 5.3). The docs don't say either way.
 - **qBittorrent `torrents/stop|start|delete`** return `200` for any hash. Fetcherr checks the
   torrent is one of its own first, so it can answer `404`.
+- **OMDb's swagger** documents the parameters but not the response. The DTO follows OMDb's
+  documented example (`Ratings[{Source, Value}]`, `imdbRating`, `imdbVotes`, `Metascore`, with
+  `"N/A"` for missing values). Failures answer HTTP 200 with `{"Response": "False", "Error": …}`
+  (401 for a bad key).
+- **TMDB** answers an unknown id with `404` and `status_code: 34`. Its documented example for
+  `recommendations` is an empty object; the DTO treats every list as optional.
+- **TMDB alternative titles** are under `titles` for movies and `results` for series.
+- **Jellyfin** episodes carry no TMDB id: they are matched to their series by `SeriesId`.
+  `fixtures/jellyfin-items.json` follows the `BaseItemDto` schema; it is not a capture from a
+  real server yet.

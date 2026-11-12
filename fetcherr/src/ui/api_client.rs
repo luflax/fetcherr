@@ -8,6 +8,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tower::ServiceExt;
 
+use crate::api::InternalCall;
 use crate::error::ErrorBody;
 
 const MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
@@ -53,6 +54,18 @@ impl ApiClient {
         self.call(Method::PUT, uri, json_body(body)?).await
     }
 
+    /// POSTs without a body and reads the JSON answer.
+    pub async fn post_empty<T: DeserializeOwned>(&self, uri: &str) -> Result<T, ApiError> {
+        self.call(Method::POST, uri, Body::empty()).await
+    }
+
+    /// POSTs a JSON body to an endpoint that answers `204 No Content`.
+    pub async fn post_no_content<B: Serialize>(&self, uri: &str, body: &B) -> Result<(), ApiError> {
+        self.exchange(Method::POST, uri, json_body(body)?)
+            .await
+            .map(drop)
+    }
+
     /// Calls an endpoint that answers without a body (`204 No Content`).
     pub async fn send(&self, method: Method, uri: &str) -> Result<(), ApiError> {
         self.exchange(method, uri, Body::empty()).await.map(drop)
@@ -74,6 +87,7 @@ impl ApiClient {
             .method(method)
             .uri(uri)
             .header(header::CONTENT_TYPE, "application/json")
+            .extension(InternalCall)
             .body(body)
             .map_err(|err| internal(format!("invalid API request {uri}: {err}")))?;
         let response = match self.api.clone().oneshot(request).await {

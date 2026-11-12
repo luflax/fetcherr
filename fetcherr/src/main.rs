@@ -1,17 +1,31 @@
 mod api;
+mod cache;
+mod catalog;
+mod clock;
 mod config;
+mod db;
 mod domain;
 mod downloads;
 mod error;
+mod events;
+mod import;
 mod integrations;
+mod jellyfin;
+mod library;
+mod metadata;
+mod omdb;
 mod prowlarr;
 mod qbittorrent;
 mod quality;
+mod release_name;
 mod releases;
+mod requests;
 mod search;
 mod server;
 mod settings;
 mod state;
+mod titles;
+mod tmdb;
 mod torrent;
 mod ui;
 mod upstream;
@@ -29,7 +43,9 @@ async fn main() -> std::io::Result<()> {
     let config = Config::load();
     init_tracing(&config.log_level);
 
-    let state = AppState::initialize(&config.data_dir).await;
+    let state = AppState::initialize(&config.data_dir)
+        .await
+        .map_err(|err| std::io::Error::other(err.to_string()))?;
     let listener = server::bind_listener(config.port)?;
     tracing::info!(
         "fetcherr listening on {} (data dir {})",

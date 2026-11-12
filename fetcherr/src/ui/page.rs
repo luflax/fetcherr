@@ -6,6 +6,9 @@ use axum::http::StatusCode;
 use axum::http::request::Parts;
 use axum::response::{Html, IntoResponse, Response};
 
+use super::api_client::ApiClient;
+use crate::settings::ApiKeyView;
+
 /// Header set by the Home Assistant Ingress proxy, e.g. `/api/hassio_ingress/<token>`.
 const INGRESS_PATH_HEADER: &str = "x-ingress-path";
 
@@ -14,6 +17,8 @@ pub struct Layout {
     pub base_href: String,
     pub active: &'static str,
     pub version: &'static str,
+    /// For the browser's own API calls (WebSocket, layout editor).
+    pub api_key: String,
 }
 
 /// Extracts the `<base href>` for a page, honouring the Ingress prefix.
@@ -41,11 +46,17 @@ fn is_safe_path(path: &str) -> bool {
 }
 
 impl Layout {
-    pub fn new(base: BaseHref, active: &'static str) -> Self {
+    pub async fn load(api: &ApiClient, base: BaseHref, active: &'static str) -> Self {
+        let api_key = api
+            .get::<ApiKeyView>("/api/settings/api-key")
+            .await
+            .map(|view| view.key)
+            .unwrap_or_default();
         Self {
             base_href: base.0,
             active,
             version: env!("CARGO_PKG_VERSION"),
+            api_key,
         }
     }
 }

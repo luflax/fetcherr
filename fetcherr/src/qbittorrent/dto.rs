@@ -31,3 +31,21 @@ pub struct TorrentInfo {
     #[serde(default)]
     pub category: String,
 }
+
+/// Element of the `/api/v2/torrents/files` array (only the fields Fetcherr reads).
+#[derive(Debug, Deserialize)]
+pub struct TorrentFile {
+    /// Relative path inside the torrent, `/`-separated.
+    pub name: String,
+    #[serde(default)]
+    pub size: i64,
+    #[serde(default)]
+    pub progress: f64,
+    /// `0` means "do not download".
+    #[serde(default = "normal_priority")]
+    pub priority: i64,
+}
+
+fn normal_priority() -> i64 {
+    1
+}

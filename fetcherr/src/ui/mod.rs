@@ -3,8 +3,10 @@
 
 mod api_client;
 mod assets;
+mod connections;
 mod downloads;
 mod format;
+mod layout_editor;
 mod page;
 mod search;
 mod settings;
@@ -38,6 +40,16 @@ pub fn router(api: ApiClient) -> Router {
         .route(
             "/settings/media/{media_type}",
             post(settings::save_media_type),
+        )
+        .route("/settings/tmdb", post(connections::save_tmdb))
+        .route("/settings/tmdb/test", post(connections::test_tmdb))
+        .route("/settings/omdb", post(connections::save_omdb))
+        .route("/settings/jellyfin", post(connections::save_jellyfin))
+        .route("/settings/jellyfin/test", post(connections::test_jellyfin))
+        .route("/settings/library", post(connections::save_library))
+        .route(
+            "/settings/api-key/regenerate",
+            post(connections::regenerate_api_key),
         )
         .route("/static/{*path}", get(assets::serve))
         .with_state(api)

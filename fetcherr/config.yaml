@@ -1,7 +1,7 @@
 name: Fetcherr
-version: "0.3.0"
+version: "0.4.0"
 slug: fetcherr
-description: Search releases with Prowlarr and download them with qBittorrent
+description: Browse and request movies and series; download with Prowlarr and qBittorrent into Jellyfin
 url: https://github.com/luflax/fetcherr
 arch:
   - amd64
@@ -12,12 +12,15 @@ boot: auto
 init: true
 ingress: true
 ingress_port: 8734
+map:
+  - media:rw
+  - share:rw
 panel_icon: mdi:movie-search
 panel_title: Fetcherr
 ports:
   8734/tcp: 8734
 ports_description:
-  8734/tcp: Fetcherr web UI, REST API and WebSocket (no authentication)
+  8734/tcp: Fetcherr web UI, REST API and WebSockets (the API needs the API key)
 watchdog: http://[HOST]:[PORT:8734]/health
 options:
   log_level: info

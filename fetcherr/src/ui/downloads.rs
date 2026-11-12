@@ -88,7 +88,7 @@ struct DownloadsPage {
 
 pub async fn page(State(api): State<ApiClient>, base: BaseHref) -> Response {
     render(DownloadsPage {
-        layout: Layout::new(base, "downloads"),
+        layout: Layout::load(&api, base, "downloads").await,
         rows: DownloadRows::load(&api).await,
     })
 }
