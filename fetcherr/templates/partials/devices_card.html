@@ -1,0 +1,34 @@
+<form id="devices-card" class="card settings-card"
+      hx-post="settings/devices/pair" hx-target="this" hx-swap="outerHTML">
+  <h2>Devices</h2>
+  <span class="hint">Pair a TV or another app: enter the code it shows. Each device gets its own key; remove it to sign it out.</span>
+  <div class="field-row">
+    <label class="field">Code
+      <input class="input mono" type="text" name="code" required maxlength="9"
+             autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7Q4M2">
+    </label>
+    <label class="field">Name <span class="hint">optional</span>
+      <input class="input" type="text" name="name" maxlength="64" autocomplete="off" placeholder="Living room TV">
+    </label>
+  </div>
+  <div class="card-actions">
+    <button class="button primary" type="submit">Pair</button>
+  </div>
+  {% if devices.is_empty() %}
+  <p class="hint">No paired devices yet.</p>
+  {% else %}
+  <ul class="device-list">
+    {% for device in devices %}
+    <li class="device-row">
+      <div>
+        <strong>{{ device.name }}</strong>
+        <span class="hint">Paired {{ device.paired }} · last seen {{ device.last_seen }}</span>
+      </div>
+      <button class="button danger" type="button"
+              hx-post="settings/devices/{{ device.id }}/delete" hx-target="#devices-card" hx-swap="outerHTML"
+              hx-confirm="Remove {{ device.name }}? It will have to be paired again.">Remove</button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</form>

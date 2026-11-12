@@ -770,6 +770,99 @@ async fn regenerating_the_api_key_retires_the_old_one() {
 }
 
 #[tokio::test]
+async fn pairs_a_tv_with_a_code_and_removes_it() {
+    let app = TestApp::new("pairing").await;
+    let without_key = |method: Method, uri: &str, body: Value| {
+        Request::builder()
+            .method(method)
+            .uri(uri)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap()
+    };
+    let with_key = |uri: &str, key: &str| {
+        Request::get(uri)
+            .header("x-api-key", key)
+            .body(Body::empty())
+            .unwrap()
+    };
+
+    // The TV has no key yet: it starts pairing and polls.
+    let (status, body) = app
+        .send(without_key(
+            Method::POST,
+            "/api/auth/pair",
+            json!({"name": "Living room TV"}),
+        ))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let ticket: Value = serde_json::from_str(&body).unwrap();
+    let code = ticket["code"].as_str().unwrap().to_string();
+    let secret = ticket["secret"].as_str().unwrap().to_string();
+    assert_eq!(code.len(), 6);
+    assert!(ticket["expires"].as_str().unwrap().ends_with('Z'));
+    let poll = format!("/api/auth/pair/{secret}");
+    let (status, body) = app.send(without_key(Method::GET, &poll, Value::Null)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert!(body.contains("pending"));
+
+    // Approving needs the key; the Settings card does it with the code as typed.
+    let (status, _) = app
+        .send(without_key(
+            Method::POST,
+            "/api/devices/pair",
+            json!({"code": code}),
+        ))
+        .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = app
+        .form("/settings/devices/pair", "code=XXXXXX&name=")
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let typed = format!("{}-{}", &code[..3], code[3..].to_lowercase());
+    let (status, html) = app
+        .form("/settings/devices/pair", &format!("code={typed}&name="))
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("Living room TV is paired"), "{html}");
+    assert!(html.contains("devices-card"));
+
+    // The TV collects its own key exactly once.
+    let (status, body) = app.send(without_key(Method::GET, &poll, Value::Null)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let paired: Value = serde_json::from_str(&body).unwrap();
+    let device_key = paired["api_key"].as_str().unwrap().to_string();
+    let device_id = paired["device_id"].as_i64().unwrap();
+    assert_ne!(device_key, app.api_key);
+    let (status, _) = app.send(without_key(Method::GET, &poll, Value::Null)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (status, body) = app.send(with_key("/api/devices", &device_key)).await;
+    assert_eq!(status, StatusCode::OK);
+    let devices: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(devices[0]["id"], device_id);
+    assert_eq!(devices[0]["name"], "Living room TV");
+    assert!(devices[0]["last_seen_at"].is_string());
+    let (_, settings) = app.get("/settings").await;
+    assert!(settings.contains("Living room TV"));
+
+    // Removing the device signs it out; the main key is unaffected.
+    let (status, html) = app
+        .form(&format!("/settings/devices/{device_id}/delete"), "")
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("No paired devices yet"));
+    let (status, _) = app.send(with_key("/api/devices", &device_key)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = app.get("/api/devices").await;
+    assert_eq!(status, StatusCode::OK);
+
+    // The name is optional.
+    let request = Request::post("/api/auth/pair").body(Body::empty()).unwrap();
+    assert_eq!(app.send(request).await.0, StatusCode::CREATED);
+}
+
+#[tokio::test]
 async fn discover_pages_show_cards_with_availability_and_etags() {
     let tmdb = mock_tmdb().await;
     // The first trending title (Scream VI) is in the library.
@@ -885,29 +978,57 @@ async fn a_movie_request_is_grabbed_downloaded_and_imported() {
     let (tmdb, jellyfin) = (mock_tmdb().await, mock_jellyfin(json!([])).await);
     app.configure(&prowlarr, &qbittorrent).await;
     app.configure_catalog(&tmdb, &jellyfin).await;
+    let new_request = json!({"media_type": "movie", "tmdb_id": 11, "scope": {"type": "movie"}});
+
+    let (status, refused) = app
+        .json(Method::POST, "/api/requests", new_request.clone())
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::CONFLICT,
+        "nothing is downloaded without a library folder: {refused}"
+    );
+
+    // Without the path mapping the download is not found where qBittorrent says it is.
+    let library = |mappings: Value| json!({"movies_folder": movies.to_string_lossy(), "path_mappings": mappings});
     let (status, _) = app
-        .json(
-            Method::PUT,
-            "/api/settings/library",
-            json!({
-                "movies_folder": movies.to_string_lossy(),
-                "path_mappings": [{"remote": "/downloads", "local": downloads.to_string_lossy()}]
-            }),
-        )
+        .json(Method::PUT, "/api/settings/library", library(json!([])))
         .await;
     assert_eq!(status, StatusCode::OK);
     let mut events = app.events.subscribe();
 
     let (status, created) = app
-        .json(
-            Method::POST,
-            "/api/requests",
-            json!({"media_type": "movie", "tmdb_id": 11, "scope": {"type": "movie"}}),
-        )
+        .json(Method::POST, "/api/requests", new_request.clone())
         .await;
     assert_eq!(status, StatusCode::ACCEPTED, "{created}");
     assert_eq!(created["title"], "Star Wars");
     let id = created["id"].as_i64().unwrap();
+
+    let failed = eventually("the failed import", || async {
+        let (_, detail) = app
+            .json(Method::GET, &format!("/api/requests/{id}"), Value::Null)
+            .await;
+        (detail["state"] == "failed").then_some(detail)
+    })
+    .await;
+    assert_eq!(failed["torrents"][0]["state"], "import_failed", "{failed}");
+
+    let (status, _) = app
+        .json(
+            Method::PUT,
+            "/api/settings/library",
+            library(json!([{"remote": "/downloads", "local": downloads.to_string_lossy()}])),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, retried) = app
+        .json(
+            Method::POST,
+            &format!("/api/requests/{id}/retry"),
+            Value::Null,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{retried}");
 
     let detail = eventually("the import", || async {
         let (_, detail) = app
@@ -919,6 +1040,11 @@ async fn a_movie_request_is_grabbed_downloaded_and_imported() {
     assert_eq!(
         detail["torrents"][0]["id"], hash,
         "the matching title, not the higher-seeded other one"
+    );
+    assert_eq!(
+        detail["torrents"].as_array().unwrap().len(),
+        1,
+        "the retry imports the finished download instead of grabbing another"
     );
     assert_eq!(detail["torrents"][0]["state"], "imported");
     let imported = movies
@@ -933,13 +1059,7 @@ async fn a_movie_request_is_grabbed_downloaded_and_imported() {
         "hardlinked, still seeding"
     );
 
-    let (status, again) = app
-        .json(
-            Method::POST,
-            "/api/requests",
-            json!({"media_type": "movie", "tmdb_id": 11, "scope": {"type": "movie"}}),
-        )
-        .await;
+    let (status, again) = app.json(Method::POST, "/api/requests", new_request).await;
     assert_eq!(
         status,
         StatusCode::OK,
@@ -1030,6 +1150,14 @@ async fn a_partly_available_season_grabs_only_the_missing_episodes() {
     let jellyfin = mock_jellyfin(fixture("jellyfin-items.json")["Items"].clone()).await;
     app.configure(&prowlarr, &qbittorrent).await;
     app.configure_catalog(&tmdb, &jellyfin).await;
+    let (status, _) = app
+        .json(
+            Method::PUT,
+            "/api/settings/library",
+            json!({"series_folder": app.data_dir.join("series").to_string_lossy()}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
 
     let season = eventually("the library sync", || async {
         let (_, season) = app

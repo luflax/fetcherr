@@ -1,5 +1,6 @@
-//! API key check for every `/api` route (the WebSocket included). `/health`, the docs and the
-//! UI pages stay open. Browsers cannot set WebSocket headers, so `?api_key=` works too.
+//! API key check for every `/api` route (the WebSocket included). `/health`, the docs, the UI
+//! pages and the two pairing endpoints a device uses before it has a key stay open. Browsers
+//! cannot set WebSocket headers, so `?api_key=` works too. Paired devices use their own keys.
 
 use std::sync::Arc;
 
@@ -8,34 +9,53 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use subtle::ConstantTimeEq;
 
+use crate::devices::Devices;
 use crate::error::AppError;
 use crate::settings::SettingsStore;
 
 const API_KEY_HEADER: &str = "x-api-key";
 const API_KEY_PARAM: &str = "api_key";
+/// `POST /api/auth/pair` and `GET /api/auth/pair/{secret}`.
+const PAIRING_PATH: &str = "/api/auth/pair";
 
 /// Marks a request made in-process by the built-in UI ([`crate::ui::ApiClient`]). Extensions
 /// cannot come from the network, so this cannot be forged.
 #[derive(Debug, Clone, Copy)]
 pub struct InternalCall;
 
+#[derive(Clone)]
+pub struct AuthState {
+    pub settings: Arc<SettingsStore>,
+    pub devices: Devices,
+}
+
 pub async fn require_api_key(
-    State(settings): State<Arc<SettingsStore>>,
+    State(auth): State<AuthState>,
     request: Request,
     next: Next,
 ) -> Response {
-    let is_api = request.uri().path().starts_with("/api/");
+    let path = request.uri().path();
+    let open = !path.starts_with("/api/") || is_pairing(path);
     let internal = request.extensions().get::<InternalCall>().is_some();
-    if !is_api || internal || carries_key(&request, &settings.get().api.key) {
+    if open || internal || is_authorized(&request, &auth) {
         return next.run(request).await;
     }
     AppError::Unauthorized.into_response()
 }
 
-fn carries_key(request: &Request, expected: &str) -> bool {
-    if expected.is_empty() {
-        return false;
-    }
+fn is_pairing(path: &str) -> bool {
+    path.strip_prefix(PAIRING_PATH)
+        .is_some_and(|rest| rest.is_empty() || (rest.starts_with('/') && !rest[1..].contains('/')))
+}
+
+fn is_authorized(request: &Request, auth: &AuthState) -> bool {
+    let main_key = &auth.settings.get().api.key;
+    presented_keys(request)
+        .into_iter()
+        .any(|key| matches(key, main_key) || auth.devices.authenticate(key).is_some())
+}
+
+fn presented_keys(request: &Request) -> Vec<&str> {
     let from_header = request
         .headers()
         .get(API_KEY_HEADER)
@@ -44,7 +64,13 @@ fn carries_key(request: &Request, expected: &str) -> bool {
     [from_header, from_query]
         .into_iter()
         .flatten()
-        .any(|key| bool::from(key.trim().as_bytes().ct_eq(expected.as_bytes())))
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+        .collect()
+}
+
+fn matches(presented: &str, expected: &str) -> bool {
+    !expected.is_empty() && bool::from(presented.as_bytes().ct_eq(expected.as_bytes()))
 }
 
 /// The raw `api_key` value; keys are hex, so no percent-decoding is needed.
@@ -67,6 +93,21 @@ mod tests {
             builder = builder.header(API_KEY_HEADER, key);
         }
         builder.body(Body::empty()).unwrap()
+    }
+
+    fn carries_key(request: &Request, expected: &str) -> bool {
+        presented_keys(request)
+            .into_iter()
+            .any(|key| matches(key, expected))
+    }
+
+    #[test]
+    fn leaves_only_the_device_pairing_endpoints_open() {
+        assert!(is_pairing("/api/auth/pair"));
+        assert!(is_pairing("/api/auth/pair/abc123"));
+        assert!(!is_pairing("/api/auth/pair/abc/x"));
+        assert!(!is_pairing("/api/auth/pairing"));
+        assert!(!is_pairing("/api/devices/pair"));
     }
 
     #[test]

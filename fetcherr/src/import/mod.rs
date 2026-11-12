@@ -55,12 +55,7 @@ pub async fn import_download(
     wanted: &Coverage,
     download: &Download,
 ) -> Result<Vec<ImportedFile>, AppError> {
-    let root = library.folder(title.kind).ok_or_else(|| {
-        AppError::Conflict(format!(
-            "set the {} library folder in Settings before importing",
-            title.kind
-        ))
-    })?;
+    let root = library.require_folder(title.kind)?;
     let files = integrations.qbittorrent()?.files(&download.id).await?;
     let selected = select_files(title.kind, &files, wanted);
     if selected.is_empty() {

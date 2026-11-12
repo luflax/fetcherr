@@ -40,8 +40,9 @@ library ──▶ Jellyfin (sync loop, watch channel)                     catalo
 ## Rules
 
 - **Every `/api` route needs the API key** (`api::auth`), except what the in-process
-  `ApiClient` sends (marked with the `InternalCall` extension). Only `/health`, `/docs` and UI
-  pages are open.
+  `ApiClient` sends (marked with the `InternalCall` extension). Only `/health`, `/docs`, UI
+  pages and the device pairing endpoints (`/api/auth/pair`, `/api/auth/pair/{secret}`) are
+  open. Paired devices (`devices`) carry their own keys, stored hashed in SQLite.
 - **The UI only talks to the REST API.** It uses `ui::ApiClient` server-side or `fetch`/WebSocket
   in the browser, and never calls services or providers. A new UI feature needs an API endpoint
   first.

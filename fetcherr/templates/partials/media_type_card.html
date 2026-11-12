@@ -4,7 +4,7 @@
   <div class="field">Indexer categories
     {{ categories|safe }}
   </div>
-  <label class="field">Download folder
+  <label class="field">Download folder <span class="hint">where qBittorrent saves; not the library</span>
     <input class="input" type="text" name="download_folder" value="{{ settings.download_folder }}"
            placeholder="Default download folder">
   </label>

@@ -571,7 +571,7 @@ async fn start_import(
                 &inner.deps.pool,
                 torrent.request_id,
                 &torrent.id,
-                TorrentState::Failed,
+                TorrentState::ImportFailed,
                 Some(&reason),
             )
             .await;

@@ -6,6 +6,7 @@ use serde::Deserialize;
 
 use super::api_client::{ApiClient, ApiError};
 use super::connections::{ApiKeyCard, JellyfinCard, LibraryCard, OmdbCard, TmdbCard};
+use super::devices::{self, DevicesCard};
 use super::layout_editor::LayoutEditor;
 use super::page::{BaseHref, Layout, Toast, render, render_all};
 use crate::domain::{Category, MediaType};
@@ -139,6 +140,7 @@ struct SettingsPage {
     omdb: OmdbCard,
     jellyfin: JellyfinCard,
     api_key: ApiKeyCard,
+    devices: DevicesCard,
     library: LibraryCard,
     media_types: Vec<MediaTypeCard>,
     layout_editor: LayoutEditor,
@@ -151,13 +153,14 @@ pub async fn page(State(api): State<ApiClient>, base: BaseHref) -> Response {
         api.get::<Vec<MediaTypeSettingsView>>("/api/settings/media-types"),
         fetch_categories(&api),
     );
-    let (tmdb, omdb, jellyfin, library, discover, api_key) = tokio::join!(
+    let (tmdb, omdb, jellyfin, library, discover, api_key, paired) = tokio::join!(
         api.get::<TmdbSettingsView>("/api/settings/tmdb"),
         api.get::<OmdbSettingsView>("/api/settings/omdb"),
         api.get::<JellyfinSettingsView>("/api/settings/jellyfin"),
         api.get::<LibrarySettings>("/api/settings/library"),
         api.get::<DiscoverLayout>("/api/settings/layout"),
         api.get::<ApiKeyView>("/api/settings/api-key"),
+        devices::fetch(&api),
     );
     let loaded = (|| {
         Ok::<_, super::api_client::ApiError>((
@@ -170,13 +173,24 @@ pub async fn page(State(api): State<ApiClient>, base: BaseHref) -> Response {
             library?,
             discover?,
             api_key?,
+            paired?,
         ))
     })();
-    let (indexer, download_client, media_types, tmdb, omdb, jellyfin, library, discover, api_key) =
-        match loaded {
-            Ok(loaded) => loaded,
-            Err(err) => return render(Toast::error(err)),
-        };
+    let (
+        indexer,
+        download_client,
+        media_types,
+        tmdb,
+        omdb,
+        jellyfin,
+        library,
+        discover,
+        api_key,
+        paired,
+    ) = match loaded {
+        Ok(loaded) => loaded,
+        Err(err) => return render(Toast::error(err)),
+    };
     render(SettingsPage {
         layout: Layout::load(&api, base, "settings").await,
         indexer: IndexerCard { settings: indexer },
@@ -187,6 +201,7 @@ pub async fn page(State(api): State<ApiClient>, base: BaseHref) -> Response {
         omdb: OmdbCard { settings: omdb },
         jellyfin: JellyfinCard { settings: jellyfin },
         api_key: ApiKeyCard { key: api_key.key },
+        devices: DevicesCard::new(paired),
         library: LibraryCard::new(library),
         media_types: media_types
             .into_iter()

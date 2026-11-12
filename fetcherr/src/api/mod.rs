@@ -2,6 +2,7 @@
 //! Every `/api` route needs the API key ([`auth`]); `/health` and `/docs` do not.
 
 mod auth;
+mod devices;
 mod discover;
 mod downloads;
 mod events;
@@ -39,7 +40,11 @@ pub use auth::InternalCall;
             Paginated endpoints answer `{page, total_pages, total_results, items}` with 20 items \
             per page.\n\n\
             Live events: WebSocket `GET /api/ws/events?requests=<id>,<id>&titles=<key>,<key>` \
-            (see the `Event` schema). Download progress: `GET /api/ws/downloads?ids=<id>,<id>`."
+            (see the `Event` schema). Download progress: `GET /api/ws/downloads?ids=<id>,<id>`.\n\n\
+            Pairing a TV: `POST /api/auth/pair` (no key) returns a code to show and a secret; \
+            the user enters the code in Settings → Devices (`POST /api/devices/pair`); the TV \
+            polls `GET /api/auth/pair/{secret}` (no key) until it answers `200` with its own \
+            API key."
     ),
     modifiers(&ApiKeySecurity),
     security(("api_key_header" = []), ("api_key_query" = [])),
@@ -51,6 +56,7 @@ pub use auth::InternalCall;
         (name = "events", description = "Live request progress and availability"),
         (name = "system", description = "Status and library sync"),
         (name = "settings", description = "Connections, library, layout and API key"),
+        (name = "devices", description = "Pair TVs and other devices with a code, list and remove them"),
         (name = "search", description = "Release search"),
         (name = "downloads", description = "Downloads managed by Fetcherr"),
         (name = "health", description = "Liveness"),
@@ -115,6 +121,11 @@ pub fn router(state: AppState) -> Router {
         .routes(routes!(settings::get_layout, settings::put_layout))
         .routes(routes!(settings::get_api_key))
         .routes(routes!(settings::regenerate_api_key))
+        .routes(routes!(devices::start_pairing))
+        .routes(routes!(devices::poll_pairing))
+        .routes(routes!(devices::list))
+        .routes(routes!(devices::approve))
+        .routes(routes!(devices::delete))
         .routes(routes!(search::qualities))
         .routes(routes!(search::categories))
         .routes(routes!(search::search))
@@ -129,14 +140,14 @@ pub fn router(state: AppState) -> Router {
         "{}".to_string()
     });
 
-    let settings = state.settings.clone();
+    let auth = auth::AuthState {
+        settings: state.settings.clone(),
+        devices: state.devices.clone(),
+    };
     router
         .route("/api/ws/downloads", get(ws::downloads))
         .with_state(state)
-        .layer(middleware::from_fn_with_state(
-            settings,
-            auth::require_api_key,
-        ))
+        .layer(middleware::from_fn_with_state(auth, auth::require_api_key))
         .route(
             "/docs/openapi.json",
             get(move || async move { ([(header::CONTENT_TYPE, "application/json")], spec) }),

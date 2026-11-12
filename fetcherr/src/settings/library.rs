@@ -73,6 +73,15 @@ impl LibrarySettings {
         Some(folder.as_str()).filter(|folder| !folder.is_empty())
     }
 
+    /// The library root for `kind`, or why nothing can be imported there yet.
+    pub fn require_folder(&self, kind: TitleKind) -> Result<&str, AppError> {
+        self.folder(kind).ok_or_else(|| {
+            AppError::Conflict(format!(
+                "set the {kind} library folder in Settings before requesting or importing"
+            ))
+        })
+    }
+
     /// Cleans and checks settings sent by a client; the input has the same shape.
     pub fn validated(self) -> Result<Self, AppError> {
         let naming = self.naming;

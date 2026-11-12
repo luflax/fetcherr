@@ -20,6 +20,8 @@ pub enum AppError {
     Unauthorized,
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    TooManyRequests(String),
     #[error(transparent)]
     Upstream(#[from] UpstreamError),
     #[error("internal error: {0}")]
@@ -35,6 +37,7 @@ impl AppError {
             Self::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Conflict(_) => StatusCode::CONFLICT,
+            Self::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             Self::Upstream(err) if err.not_found => StatusCode::NOT_FOUND,
             Self::Upstream(_) => StatusCode::BAD_GATEWAY,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -49,6 +52,7 @@ impl AppError {
             Self::Invalid(_) => "invalid",
             Self::Unauthorized => "unauthorized",
             Self::Conflict(_) => "conflict",
+            Self::TooManyRequests(_) => "too_many_requests",
             Self::Upstream(err) if err.not_found => "not_found",
             Self::Upstream(_) => "upstream",
             Self::Internal(_) => "internal",

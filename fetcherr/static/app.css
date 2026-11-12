@@ -184,6 +184,10 @@ tr.stopped .icon-button.pause, tr:not(.stopped) .icon-button.resume { display: n
 
 .settings-card.wide { grid-column: 1 / -1; }
 .settings-card > .hint { display: block; margin: -8px 0 14px; color: var(--muted); }
+.settings-card > .hint.warning { color: var(--danger); }
+.device-list { list-style: none; margin: 18px 0 0; padding: 0; border-top: 1px solid var(--border); }
+.device-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.device-row .hint { display: block; color: var(--muted); font-size: 13px; }
 textarea.input { resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .input.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 details.field summary { cursor: pointer; color: var(--text); margin-bottom: 10px; }
