@@ -4,6 +4,7 @@
 mod api_client;
 mod assets;
 mod connections;
+mod devices;
 mod downloads;
 mod format;
 mod layout_editor;
@@ -51,6 +52,8 @@ pub fn router(api: ApiClient) -> Router {
             "/settings/api-key/regenerate",
             post(connections::regenerate_api_key),
         )
+        .route("/settings/devices/pair", post(devices::pair))
+        .route("/settings/devices/{id}/delete", post(devices::remove))
         .route("/static/{*path}", get(assets::serve))
         .with_state(api)
 }

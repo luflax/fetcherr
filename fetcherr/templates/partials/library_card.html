@@ -1,12 +1,15 @@
 <form id="library-card" class="card settings-card wide"
       hx-post="settings/library" hx-target="this" hx-swap="outerHTML">
   <h2>Library <span class="muted">import</span></h2>
-  <span class="hint">Folders as Fetcherr sees them (e.g. under /media or /share). Finished downloads are renamed and placed here.</span>
+  <span class="hint">Folders as Fetcherr sees them (e.g. under /media or /share). Finished downloads are renamed and placed here. Requests need the folder of their kind.</span>
+  {% if settings.movies_folder.is_empty() || settings.series_folder.is_empty() %}
+  <span class="hint warning">Set the library folders to request and import.</span>
+  {% endif %}
   <div class="field-row">
-    <label class="field">Movies folder
+    <label class="field">Movies library folder
       <input class="input" type="text" name="movies_folder" value="{{ settings.movies_folder }}" placeholder="/media/movies">
     </label>
-    <label class="field">Series folder
+    <label class="field">Series library folder
       <input class="input" type="text" name="series_folder" value="{{ settings.series_folder }}" placeholder="/media/series">
     </label>
   </div>
@@ -21,22 +24,22 @@
   </label>
   <details class="field">
     <summary>Naming</summary>
-    <span class="hint">Placeholders: {title} {year} {tmdb_id} {season} {episode} {quality}; add :02 to pad, e.g. {season:02}.</span>
+    <span class="hint">Names only (no paths), inside the library folders above. Placeholders: {title} {year} {tmdb_id} {season} {episode} {quality}; add :02 to pad, e.g. {season:02}.</span>
     <div class="field-row">
-      <label class="field">Movie folder
+      <label class="field">Movie folder name
         <input class="input" type="text" name="movie_folder" value="{{ settings.naming.movie_folder }}">
       </label>
-      <label class="field">Movie file
+      <label class="field">Movie file name
         <input class="input" type="text" name="movie_file" value="{{ settings.naming.movie_file }}">
       </label>
-      <label class="field">Series folder
+      <label class="field">Series folder name
         <input class="input" type="text" name="series_folder_name" value="{{ settings.naming.series_folder }}">
       </label>
-      <label class="field">Season folder
+      <label class="field">Season folder name
         <input class="input" type="text" name="season_folder" value="{{ settings.naming.season_folder }}">
       </label>
     </div>
-    <label class="field">Episode file
+    <label class="field">Episode file name
       <input class="input" type="text" name="episode_file" value="{{ settings.naming.episode_file }}">
     </label>
   </details>

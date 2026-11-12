@@ -32,7 +32,9 @@ the downloads) there.
 
 ## Requests
 
-A request is a movie, a whole season, or some episodes of a season. When you create one:
+A request is a movie, a whole season, or some episodes of a season. Set the movies or series
+folder under **Library** first: without it, requests of that kind are refused (`409`). When you
+create one:
 
 1. Fetcherr works out what is missing. For a season, that is every **aired** episode that is
    not already in Jellyfin, imported, or being downloaded for another request.
@@ -55,6 +57,10 @@ A request is a movie, a whole season, or some episodes of a season. When you cre
 Request states: `searching`, `not_found` (searched again every 6 hours), `downloading`,
 `paused`, `importing`, `available`, `failed`. Requests are stored in `/data/fetcherr.db`.
 
+If an import fails (e.g. a wrong path mapping), the torrent is marked `import_failed` and the
+request `failed` with the reason. Fix the cause and **retry**: finished downloads still in
+qBittorrent are imported again instead of being downloaded again.
+
 Downloads are still the qBittorrent torrents tagged `fetcherr`, so they also show under
 **Downloads**.
 
@@ -72,6 +78,21 @@ Every `/api` endpoint, the WebSockets included, needs the **API key** shown unde
 **Settings → API key**: send it in the `X-Api-Key` header, or as the `api_key` query parameter
 (needed for WebSockets from a browser). `/health`, the API docs and the web UI pages need no
 key. **Generate a new key** there if it leaks; the old one stops working at once.
+
+### Pairing a TV or another app
+
+Instead of typing the key on a TV, pair it with a code:
+
+1. The TV calls `POST /api/auth/pair` (no key; optional body `{"name": "Living room TV"}`) and
+   gets `{"code": "K7Q4M2", "secret", "expires", "expires_in_secs", "poll_interval_secs"}`. It
+   shows the code.
+2. Enter the code under **Settings → Devices** (or `POST /api/devices/pair` with
+   `{"code", "name"?}`). Case, spaces and dashes don't matter. Codes expire after 10 minutes.
+3. The TV polls `GET /api/auth/pair/{secret}` (no key) every 2 seconds: `202` while waiting,
+   then `200 {"api_key", "device_id"}` once. It keeps that key and sends it like the main key.
+
+Each device has its own key. **Remove** it under Settings → Devices to sign it out; generating
+a new main key does not affect paired devices.
 
 - **Sidebar (Ingress):** protected by your Home Assistant login.
 - **Port 8734:** the same UI and API on your LAN (e.g. `http://homeassistant.local:8734`).
@@ -124,6 +145,11 @@ Movies and series appear as one **card** model everywhere:
 | POST | `/api/settings/tmdb/test`, `/jellyfin/test` | Test unsaved settings |
 | GET | `/api/settings/api-key` | The API key |
 | POST | `/api/settings/api-key/regenerate` | Replace the API key |
+| POST | `/api/auth/pair` | Start pairing a device (no key) → `201 {"code", "secret", "expires", …}` |
+| GET | `/api/auth/pair/{secret}` | Poll a pairing (no key) → `202` pending, then `200 {"api_key", "device_id"}` once |
+| POST | `/api/devices/pair` | Approve a code: `{"code", "name"?}` → `201` device |
+| GET | `/api/devices` | Paired devices (`id`, `name`, `created_at`, `last_seen_at`) |
+| DELETE | `/api/devices/{id}` | Remove a device; its key stops working → `204` |
 | GET/PUT | `/api/settings/indexer` | Prowlarr settings (`api_key` is write-only) |
 | POST | `/api/settings/indexer/test` | Test unsaved Prowlarr settings; returns version + categories |
 | GET/PUT | `/api/settings/download-client` | qBittorrent settings (`password` is write-only) |
@@ -150,11 +176,12 @@ Errors always look like `{"error": {"code": "...", "message": "..."}}`:
 | Status | Code | Meaning |
 |--------|------|---------|
 | 401 | `unauthorized` | Missing or wrong API key |
-| 404 | `not_found` | Unknown page, list, request, title or download |
+| 404 | `not_found` | Unknown page, list, request, title, download, device or pairing |
 | 409 | `not_configured` | A service is not configured yet |
 | 409 | `conflict` | Not possible in the current state (e.g. pausing a request that is not downloading) |
 | 410 | `release_expired` | The `release_id` is older than 1 hour; search again |
 | 422 | `invalid` | Invalid input |
+| 429 | `too_many_requests` | Too many device pairings in progress; try again in a few minutes |
 | 502 | `upstream` | Prowlarr, qBittorrent, TMDB, Jellyfin or OMDb failed (the message says why) |
 
 `release_id` values come from searches. Fetcherr keeps each release's download link on the

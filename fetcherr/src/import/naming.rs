@@ -20,6 +20,9 @@ pub fn check_template(template: &str, needs_episode: bool) -> Result<(), String>
     if template.trim().is_empty() {
         return Err("must not be empty".into());
     }
+    if template.contains(['/', '\\']) {
+        return Err("is a name, not a path; set the library folders above".into());
+    }
     let mut uses_episode = false;
     for placeholder in placeholders(template)? {
         let (name, format) = placeholder.split_once(':').unwrap_or((placeholder, ""));
@@ -150,6 +153,7 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(render(&naming.season_folder, &episode), "Season 01");
+        assert!(check_template("/share/jellyfin/movies", false).is_err());
         assert_eq!(
             render(&naming.episode_file, &episode),
             "Game of Thrones S01E02"

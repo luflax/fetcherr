@@ -4,6 +4,7 @@ mod catalog;
 mod clock;
 mod config;
 mod db;
+mod devices;
 mod domain;
 mod downloads;
 mod error;

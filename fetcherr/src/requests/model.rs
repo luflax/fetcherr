@@ -164,6 +164,8 @@ pub enum TorrentState {
     Downloading,
     Importing,
     Imported,
+    /// Downloaded, but the import failed; a retry imports it again.
+    ImportFailed,
     Failed,
 }
 
@@ -173,6 +175,7 @@ impl TorrentState {
             Self::Downloading => "downloading",
             Self::Importing => "importing",
             Self::Imported => "imported",
+            Self::ImportFailed => "import_failed",
             Self::Failed => "failed",
         }
     }
@@ -182,6 +185,7 @@ impl TorrentState {
             Self::Downloading,
             Self::Importing,
             Self::Imported,
+            Self::ImportFailed,
             Self::Failed,
         ]
         .into_iter()

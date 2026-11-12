@@ -5,6 +5,7 @@ use sqlx::SqlitePool;
 
 use crate::catalog::Catalog;
 use crate::db;
+use crate::devices::Devices;
 use crate::downloads::DownloadMonitor;
 use crate::error::AppError;
 use crate::events::EventBus;
@@ -25,6 +26,7 @@ pub struct AppState {
     pub library: Library,
     pub requests: Requests,
     pub catalog: Catalog,
+    pub devices: Devices,
 }
 
 impl AppState {
@@ -51,6 +53,7 @@ impl AppState {
             events: events.clone(),
         })
         .await?;
+        let devices = Devices::open(pool.clone()).await?;
         let catalog = Catalog::new(
             integrations.clone(),
             settings.clone(),
@@ -68,6 +71,7 @@ impl AppState {
             library,
             requests,
             catalog,
+            devices,
         })
     }
 

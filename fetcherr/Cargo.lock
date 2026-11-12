@@ -565,6 +565,7 @@ dependencies = [
  "serde_html_form",
  "serde_json",
  "sha1 0.11.0",
+ "sha2 0.11.1",
  "socket2",
  "sqlx",
  "subtle",

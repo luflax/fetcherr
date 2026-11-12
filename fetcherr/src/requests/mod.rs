@@ -92,6 +92,13 @@ impl Requests {
     pub async fn create(&self, input: NewRequest) -> Result<(RequestDetail, bool), AppError> {
         let key = TitleKey::new(input.media_type, input.tmdb_id);
         let scope = input.scope.validated(key.kind)?;
+        // Fail now rather than after the download, when the import would.
+        self.inner
+            .deps
+            .settings
+            .get()
+            .library
+            .require_folder(key.kind)?;
         let (title, year, poster_path) = self.inner.describe(key, &scope).await?;
         if let Some(release_id) = &input.release_id {
             let cached = self
@@ -297,7 +304,8 @@ impl Requests {
         self.get(id).await
     }
 
-    /// Searches again for a failed or not-found request.
+    /// Searches again for a failed or not-found request. Downloads whose import failed are
+    /// imported again (if still in qBittorrent) instead of being downloaded again.
     pub async fn retry(&self, id: RequestId) -> Result<RequestDetail, AppError> {
         let request = self.inner.load(id).await?;
         if !matches!(request.state, RequestState::Failed | RequestState::NotFound) {
@@ -306,9 +314,23 @@ impl Requests {
             ));
         }
         self.inner
+            .deps
+            .settings
+            .get()
+            .library
+            .require_folder(request.key.kind)?;
+        let pool = &self.inner.deps.pool;
+        for torrent in store::torrents_of(pool, id).await? {
+            if torrent.state == TorrentState::ImportFailed {
+                store::set_torrent_state(pool, id, &torrent.id, TorrentState::Downloading, None)
+                    .await?;
+            }
+        }
+        self.inner
             .set_state(id, RequestState::Searching, None)
             .await?;
         self.inner.enqueue(id);
+        self.inner.tracker.notify_one();
         self.get(id).await
     }
 
@@ -520,7 +542,7 @@ fn torrent_view(torrent: &StoredTorrent, snapshot: &[Download]) -> RequestTorren
         state: torrent.state,
         error: torrent.error.clone(),
         progress: match torrent.state {
-            TorrentState::Imported | TorrentState::Importing => 1.0,
+            TorrentState::Imported | TorrentState::Importing | TorrentState::ImportFailed => 1.0,
             _ => live.map_or(0.0, |download| download.progress),
         },
         dl_speed: live.map_or(0, |download| download.dl_speed),
