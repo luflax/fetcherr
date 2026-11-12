@@ -1,11 +1,19 @@
 # Changelog
 
-## 0.4.0
+## 0.5.0
 
 - **Pair TVs with a code:** a device calls `POST /api/auth/pair`, shows the code, and polls
   `GET /api/auth/pair/{secret}` (both without a key) until the code is entered under
   **Settings → Devices**; it then gets its own API key. Devices are listed there and can be
   removed, which revokes their key.
+- **Requests need the library folder** of their kind (`409` otherwise), and the Library card
+  warns while one is empty. A failed import no longer fails the download: **Retry** imports the
+  finished download again instead of downloading it again.
+- Naming templates are names, not paths: a template with `/` or `\` is rejected. Clearer labels
+  tell the qBittorrent download folder from the library folders.
+
+## 0.4.0
+
 - **API key:** every `/api` endpoint and the WebSockets now need the API key (Settings → API
   key), in the `X-Api-Key` header or the `api_key` query parameter. `/health`, the API docs and
   the web UI stay open. Existing clients must add the key.
@@ -19,9 +27,7 @@
 - **Requests:** request a movie, a season or episodes. Fetcherr searches by title (dropping other
   titles, telling season packs from single episodes), picks the best release by your quality
   ranking, and for a partly available season grabs only the missing episodes. Pause, resume,
-  retry and delete requests. Requests are stored in `/data/fetcherr.db`. A request needs the
-  library folder for its kind; retrying after a failed import imports the finished download
-  again instead of downloading it again.
+  retry and delete requests. Requests are stored in `/data/fetcherr.db`.
 - **Import:** finished downloads are hardlinked (or moved) into the library with Jellyfin-style
   names, with subtitles, then Jellyfin rescans. Path mappings cover qBittorrent and Fetcherr
   seeing different folders. The add-on can now read and write `/media` and `/share`.

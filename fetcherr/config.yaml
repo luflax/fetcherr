@@ -1,5 +1,5 @@
 name: Fetcherr
-version: "0.4.0"
+version: "0.5.0"
 slug: fetcherr
 description: Browse and request movies and series; download with Prowlarr and qBittorrent into Jellyfin
 url: https://github.com/luflax/fetcherr
