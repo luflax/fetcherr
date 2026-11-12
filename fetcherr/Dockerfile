@@ -10,6 +10,7 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs \
     && rm -rf src
 
 COPY src ./src
+COPY migrations ./migrations
 COPY templates ./templates
 COPY static ./static
 RUN touch src/main.rs && cargo build --release --locked
@@ -24,7 +25,7 @@ ARG BUILD_ARCH=amd64
 ARG BUILD_VERSION=dev
 LABEL \
     io.hass.name="Fetcherr" \
-    io.hass.description="Search releases with Prowlarr and download them with qBittorrent" \
+    io.hass.description="Browse and request movies and series; download with Prowlarr and qBittorrent into Jellyfin" \
     io.hass.type="addon" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.version="${BUILD_VERSION}" \

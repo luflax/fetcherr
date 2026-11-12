@@ -64,6 +64,7 @@
   const connect = (attempt = 0) => {
     const url = new URL("api/ws/downloads", document.baseURI);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.searchParams.set("api_key", document.querySelector('meta[name="fetcherr-api-key"]')?.content ?? "");
     const socket = new WebSocket(url);
     socket.onopen = () => { attempt = 0; };
     socket.onmessage = (message) => handle(JSON.parse(message.data));

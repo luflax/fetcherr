@@ -1,0 +1,74 @@
+{
+  "Items": [
+    {
+      "Name": "The Matrix",
+      "ServerId": "d9e1c7a0b0f84b8f9b1c2d3e4f5a6b7c",
+      "Id": "4f2a1c3b5d6e7f8091a2b3c4d5e6f708",
+      "PremiereDate": "1999-03-30T00:00:00.0000000Z",
+      "ProductionYear": 1999,
+      "ProviderIds": { "Tmdb": "603", "Imdb": "tt0133093" },
+      "IsFolder": false,
+      "Type": "Movie",
+      "LocationType": "FileSystem",
+      "MediaType": "Video"
+    },
+    {
+      "Name": "Game of Thrones",
+      "ServerId": "d9e1c7a0b0f84b8f9b1c2d3e4f5a6b7c",
+      "Id": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      "ProductionYear": 2011,
+      "ProviderIds": { "Tmdb": "1399", "Imdb": "tt0944947", "Tvdb": "121361" },
+      "IsFolder": true,
+      "Type": "Series",
+      "LocationType": "FileSystem",
+      "MediaType": "Unknown"
+    },
+    {
+      "Name": "Season 1",
+      "ServerId": "d9e1c7a0b0f84b8f9b1c2d3e4f5a6b7c",
+      "Id": "b2c3d4e5f60718293a4b5c6d7e8f90a1",
+      "IndexNumber": 1,
+      "ProviderIds": {},
+      "IsFolder": true,
+      "Type": "Season",
+      "SeriesName": "Game of Thrones",
+      "SeriesId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      "LocationType": "FileSystem",
+      "MediaType": "Unknown"
+    },
+    {
+      "Name": "Winter Is Coming",
+      "ServerId": "d9e1c7a0b0f84b8f9b1c2d3e4f5a6b7c",
+      "Id": "c3d4e5f60718293a4b5c6d7e8f90a1b2",
+      "IndexNumber": 1,
+      "ParentIndexNumber": 1,
+      "ProviderIds": { "Tvdb": "3254641", "Imdb": "tt1480055" },
+      "IsFolder": false,
+      "Type": "Episode",
+      "SeriesName": "Game of Thrones",
+      "SeriesId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      "SeasonId": "b2c3d4e5f60718293a4b5c6d7e8f90a1",
+      "SeasonName": "Season 1",
+      "LocationType": "FileSystem",
+      "MediaType": "Video"
+    },
+    {
+      "Name": "The Kingsroad",
+      "ServerId": "d9e1c7a0b0f84b8f9b1c2d3e4f5a6b7c",
+      "Id": "d4e5f60718293a4b5c6d7e8f90a1b2c3",
+      "IndexNumber": 2,
+      "ParentIndexNumber": 1,
+      "ProviderIds": { "Tvdb": "3436411" },
+      "IsFolder": false,
+      "Type": "Episode",
+      "SeriesName": "Game of Thrones",
+      "SeriesId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      "SeasonId": "b2c3d4e5f60718293a4b5c6d7e8f90a1",
+      "SeasonName": "Season 1",
+      "LocationType": "FileSystem",
+      "MediaType": "Video"
+    }
+  ],
+  "TotalRecordCount": 5,
+  "StartIndex": 0
+}

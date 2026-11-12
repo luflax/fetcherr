@@ -1,0 +1,20 @@
+<form id="jellyfin-card" class="card settings-card"
+      hx-post="settings/jellyfin" hx-target="this" hx-swap="outerHTML">
+  <h2>Media server <span class="muted">Jellyfin</span></h2>
+  <label class="field">URL
+    <input class="input" type="url" name="url" value="{{ settings.url }}" placeholder="http://jellyfin:8096" required>
+  </label>
+  <label class="field">API key
+    <input class="input" type="password" name="api_key" autocomplete="off"
+           placeholder="{% if settings.has_api_key %}•••••••• (unchanged){% else %}Dashboard → API Keys{% endif %}">
+  </label>
+  <label class="field small">Sync every (minutes)
+    <input class="input" type="number" name="sync_interval_minutes" min="1" max="1440" value="{{ settings.sync_interval_minutes }}">
+  </label>
+  <div class="card-actions">
+    <button class="button" type="button"
+            hx-post="settings/jellyfin/test" hx-include="closest form" hx-target="#jellyfin-test" hx-swap="outerHTML">Test</button>
+    <button class="button primary" type="submit">Save</button>
+    <span id="jellyfin-test"></span>
+  </div>
+</form>

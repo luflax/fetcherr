@@ -1,0 +1,13 @@
+<section id="layout-editor" class="card settings-card wide">
+  <h2>Discover layout</h2>
+  <span class="hint">Pages are the tabs of client apps; each shows its lists in this order. Filters apply to discover lists.</span>
+  <div class="layout-pages">
+    {% for page in pages %}{{ page|safe }}{% endfor %}
+  </div>
+  <template id="layout-page-template">{{ blank_page|safe }}</template>
+  <template id="layout-list-template">{{ blank_list|safe }}</template>
+  <div class="card-actions">
+    <button type="button" class="button" data-action="add-page">Add page</button>
+    <button type="button" class="button primary" data-action="save-layout">Save layout</button>
+  </div>
+</section>

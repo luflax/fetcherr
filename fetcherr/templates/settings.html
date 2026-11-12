@@ -7,6 +7,15 @@
 <div class="settings-grid">
   {{ indexer|safe }}
   {{ download_client|safe }}
+  {{ tmdb|safe }}
+  {{ jellyfin|safe }}
+  {{ omdb|safe }}
+  {{ api_key|safe }}
+</div>
+
+<h2 class="section-title">Library</h2>
+<div class="settings-grid">
+  {{ library|safe }}
 </div>
 
 <h2 class="section-title">Media types</h2>
@@ -15,7 +24,11 @@
   {{ card|safe }}
   {% endfor %}
 </div>
+
+<h2 class="section-title">Discover</h2>
+{{ layout_editor|safe }}
 {% endblock %}
 {% block scripts %}
 <script src="static/quality-ranking.js?v={{ layout.version }}" defer></script>
+<script src="static/layout-editor.js?v={{ layout.version }}" defer></script>
 {% endblock %}

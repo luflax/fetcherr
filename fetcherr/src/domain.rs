@@ -217,6 +217,18 @@ pub struct Download {
     pub media_type: Option<MediaType>,
 }
 
+/// A file inside a download.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DownloadFile {
+    /// Relative to the download's save path, `/`-separated.
+    pub name: String,
+    pub size: u64,
+    /// Fraction from 0.0 to 1.0.
+    pub progress: f64,
+    /// Skipped files are never downloaded.
+    pub skipped: bool,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SortBy {
@@ -273,4 +285,85 @@ pub struct StartDownload {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct DownloadStarted {
     pub id: DownloadId,
+}
+
+/// Items per page of every paginated response.
+pub const PAGE_SIZE: u32 = 20;
+
+/// One page of a list. Every paginated endpoint answers with this shape.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct Page<T> {
+    /// 1-based.
+    pub page: u32,
+    pub total_pages: u32,
+    pub total_results: u32,
+    pub items: Vec<T>,
+}
+
+impl<T> Page<T> {
+    pub fn empty(page: u32) -> Self {
+        Self {
+            page,
+            total_pages: 0,
+            total_results: 0,
+            items: Vec::new(),
+        }
+    }
+
+    /// A page of a local list of `total_results` items, [`PAGE_SIZE`] per page.
+    pub fn of(page: u32, total_results: u32, items: Vec<T>) -> Self {
+        Self {
+            page,
+            total_pages: total_results.div_ceil(PAGE_SIZE),
+            total_results,
+            items,
+        }
+    }
+
+    pub fn map<U>(self, f: impl FnMut(T) -> U) -> Page<U> {
+        Page {
+            page: self.page,
+            total_pages: self.total_pages,
+            total_results: self.total_results,
+            items: self.items.into_iter().map(f).collect(),
+        }
+    }
+}
+
+/// `?page=` query parameter, 1-based (defaults to 1).
+#[derive(Debug, Clone, Copy, Deserialize, utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct PageQuery {
+    #[serde(default = "first_page")]
+    #[param(minimum = 1, default = 1)]
+    pub page: u32,
+}
+
+fn first_page() -> u32 {
+    1
+}
+
+impl PageQuery {
+    pub fn page(self) -> u32 {
+        self.page.max(1)
+    }
+
+    /// SQL `OFFSET` of this page.
+    pub fn offset(self) -> i64 {
+        i64::from(self.page() - 1) * i64::from(PAGE_SIZE)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn counts_pages_of_twenty() {
+        assert_eq!(Page::of(1, 0, Vec::<u8>::new()).total_pages, 0);
+        assert_eq!(Page::of(1, 20, Vec::<u8>::new()).total_pages, 1);
+        assert_eq!(Page::of(1, 21, Vec::<u8>::new()).total_pages, 2);
+        assert_eq!(PageQuery { page: 0 }.offset(), 0);
+        assert_eq!(PageQuery { page: 3 }.offset(), 40);
+    }
 }

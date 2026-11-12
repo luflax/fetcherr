@@ -3,13 +3,18 @@
 
 use std::cmp::Reverse;
 
+use serde::Serialize;
+use utoipa::ToSchema;
+
 use crate::domain::{MediaType, Release, SearchQuery, SortBy};
 use crate::error::AppError;
 use crate::integrations::Integrations;
 use crate::prowlarr::SearchRequest;
 use crate::quality::Quality;
+use crate::release_name::{self, Coverage, ParsedName};
 use crate::releases::{CachedRelease, ReleaseCache};
 use crate::settings::MediaSettings;
+use crate::titles::TitleKind;
 
 pub async fn search(
     integrations: &Integrations,
@@ -41,6 +46,7 @@ pub async fn search(
         let cached = CachedRelease {
             source: found.source.clone(),
             media_type: found.release.media_type,
+            title: found.release.title.clone(),
         };
         (found.release.release_id.clone(), cached)
     }));
@@ -52,6 +58,118 @@ pub async fn search(
         .collect();
     sort_releases(&mut matching, query, media);
     Ok(matching)
+}
+
+/// What to look for when searching releases of one title.
+#[derive(Debug, Clone, Default)]
+pub struct TitleQuery {
+    pub kind: Option<TitleKind>,
+    /// The title first, then the original title and aliases. Only the first is searched for.
+    pub titles: Vec<String>,
+    pub year: Option<i32>,
+    pub season: Option<u32>,
+    pub episode: Option<u32>,
+    /// Only this quality, instead of the media type's ranking.
+    pub quality: Option<Quality>,
+}
+
+/// A release of a known title, with what it contains.
+#[derive(Debug, Clone, PartialEq, Serialize, ToSchema)]
+pub struct TitleRelease {
+    #[serde(flatten)]
+    pub release: Release,
+    pub coverage: Coverage,
+    /// Position in the quality preference, 0 = most preferred; absent when unranked.
+    pub quality_rank: Option<u32>,
+}
+
+/// Searches releases of one title, dropping other titles and releases outside the asked
+/// season/episode. Sorted like [`search`]: quality preference, then seeders.
+pub async fn search_title(
+    integrations: &Integrations,
+    releases: &ReleaseCache,
+    media: &MediaSettings,
+    query: &TitleQuery,
+) -> Result<Vec<TitleRelease>, AppError> {
+    let kind = query
+        .kind
+        .ok_or_else(|| AppError::Invalid("missing title kind".into()))?;
+    let title = query
+        .titles
+        .first()
+        .ok_or_else(|| AppError::Invalid("missing title".into()))?;
+    let base = release_name::simplify_title(title);
+    let texts = match (kind, query.season, query.episode) {
+        (TitleKind::Movie, ..) => {
+            let with_year = query.year.map(|year| format!("{base} {year}"));
+            with_year.into_iter().chain([base.clone()]).collect()
+        }
+        (TitleKind::Series, Some(season), Some(episode)) => {
+            vec![format!("{base} S{season:02}E{episode:02}")]
+        }
+        (TitleKind::Series, Some(season), None) => vec![format!("{base} S{season:02}")],
+        (TitleKind::Series, None, _) => vec![base.clone()],
+    };
+
+    // Movies are searched with the year first; without it only when nothing matched.
+    for text in texts {
+        let search_query = SearchQuery {
+            query: text,
+            media_type: Some(kind.media_type()),
+            qualities: query.quality.into_iter().collect(),
+            ..Default::default()
+        };
+        let found = search(integrations, releases, media, &search_query).await?;
+        let matching: Vec<TitleRelease> = found
+            .into_iter()
+            .filter_map(|release| {
+                let parsed = release_name::parse(&release.title);
+                belongs_to(&parsed, query, kind).then(|| TitleRelease {
+                    quality_rank: ranked_position(&search_query, media, &release),
+                    coverage: parsed.coverage,
+                    release,
+                })
+            })
+            .collect();
+        if !matching.is_empty() {
+            return Ok(matching);
+        }
+    }
+    Ok(Vec::new())
+}
+
+fn belongs_to(parsed: &ParsedName, query: &TitleQuery, kind: TitleKind) -> bool {
+    if !release_name::title_matches(parsed, &query.titles) {
+        return false;
+    }
+    match kind {
+        TitleKind::Movie => {
+            let year_ok = match (parsed.year, query.year) {
+                (Some(found), Some(wanted)) => (found - wanted).abs() <= 1,
+                _ => true,
+            };
+            parsed.coverage == Coverage::Movie && year_ok
+        }
+        TitleKind::Series => match (&parsed.coverage, query.season, query.episode) {
+            (Coverage::Movie, ..) => false,
+            (_, None, _) => true,
+            (coverage, Some(season), None) => coverage.covers_season(season),
+            (
+                Coverage::Episodes {
+                    season: s,
+                    episodes,
+                },
+                Some(season),
+                Some(episode),
+            ) => *s == season && episodes.contains(&episode),
+            (coverage, Some(season), Some(_)) => coverage.covers_season(season),
+        },
+    }
+}
+
+fn ranked_position(query: &SearchQuery, media: &MediaSettings, release: &Release) -> Option<u32> {
+    let rank = quality_rank(query, media, release);
+    (rank != usize::MAX).then(|| u32::try_from(rank).unwrap_or(u32::MAX))
 }
 
 /// Explicit categories, else the media type's, else those of every media type.

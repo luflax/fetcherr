@@ -6,7 +6,7 @@ use reqwest::multipart::{Form, Part};
 use reqwest::{RequestBuilder, Response, StatusCode, Url, header};
 use tokio::sync::Mutex;
 
-use crate::domain::{Download, DownloadId, DownloadState, MediaType};
+use crate::domain::{Download, DownloadFile, DownloadId, DownloadState, MediaType};
 use crate::settings::DownloadClientSettings;
 use crate::torrent::TorrentPayload;
 use crate::upstream::{UpstreamError, ensure_success, parse_base_url};
@@ -101,6 +101,30 @@ impl QbittorrentClient {
             .await
             .map_err(|err| UpstreamError::new(SERVICE, format!("unexpected response: {err}")))?;
         Ok(torrents.into_iter().filter_map(to_download).collect())
+    }
+
+    /// The files of a torrent. qBittorrent answers 404 for an unknown hash.
+    pub async fn files(&self, id: &DownloadId) -> Result<Vec<DownloadFile>, UpstreamError> {
+        let params = [("hash", id.as_str())];
+        let response = self
+            .send(
+                |url| self.http.get(url).query(&params),
+                "api/v2/torrents/files",
+            )
+            .await?;
+        let files: Vec<dto::TorrentFile> = response
+            .json()
+            .await
+            .map_err(|err| UpstreamError::new(SERVICE, format!("unexpected response: {err}")))?;
+        Ok(files
+            .into_iter()
+            .map(|file| DownloadFile {
+                name: file.name,
+                size: non_negative(file.size),
+                progress: file.progress.clamp(0.0, 1.0),
+                skipped: file.priority == 0,
+            })
+            .collect())
     }
 
     /// Pauses torrents (`stop` is the 5.x name of `pause`).
@@ -450,6 +474,28 @@ mod tests {
             })
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn lists_torrent_files() {
+        let server = MockServer::start().await;
+        mount_login(&server, "abc").await;
+        Mock::given(method("GET"))
+            .and(path("/api/v2/torrents/files"))
+            .and(query_param("hash", HASH))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+                {"index": 0, "is_seed": false, "name": "Show.S01/Show.S01E01.mkv",
+                 "piece_range": [0, 1253], "priority": 1, "progress": 1, "size": 657457152,
+                 "availability": 1},
+                {"index": 1, "name": "Show.S01/sample.mkv", "priority": 0, "progress": 0, "size": 10}
+            ])))
+            .mount(&server)
+            .await;
+        let id = DownloadId::try_from(HASH.to_string()).unwrap();
+        let files = client(&server).files(&id).await.unwrap();
+        assert_eq!(files.len(), 2);
+        assert_eq!(files[0].name, "Show.S01/Show.S01E01.mkv");
+        assert!(!files[0].skipped && files[1].skipped);
     }
 
     #[tokio::test]

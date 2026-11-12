@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.4.0
+
+- **API key:** every `/api` endpoint and the WebSockets now need the API key (Settings → API
+  key), in the `X-Api-Key` header or the `api_key` query parameter. `/health`, the API docs and
+  the web UI stay open. Existing clients must add the key.
+- **Browse with TMDB:** configurable discover pages and lists (trending, popular, top rated, in
+  theatres, upcoming, on the air, airing today, or discover with filters), title and person
+  details, search and sized image URLs. One card model and one pagination shape
+  (`{page, total_pages, total_results, items}`, 20 per page) everywhere. Layout and list
+  responses carry `ETag` and `Cache-Control`.
+- **Jellyfin:** availability and Jellyfin item ids per title, season and episode, synced every
+  few minutes and after each import.
+- **Requests:** request a movie, a season or episodes. Fetcherr searches by title (dropping other
+  titles, telling season packs from single episodes), picks the best release by your quality
+  ranking, and for a partly available season grabs only the missing episodes. Pause, resume,
+  retry and delete requests. Requests are stored in `/data/fetcherr.db`.
+- **Import:** finished downloads are hardlinked (or moved) into the library with Jellyfin-style
+  names, with subtitles, then Jellyfin rescans. Path mappings cover qBittorrent and Fetcherr
+  seeing different folders. The add-on can now read and write `/media` and `/share`.
+- **Ratings:** IMDb, Rotten Tomatoes and Metacritic through OMDb, cached for a day.
+- **Live events:** `GET /api/ws/events` pushes request progress and availability changes,
+  filtered by request or title. The format is in the OpenAPI spec (`Event`).
+- `GET /api/system/status` reports the version and which services are configured.
+- Settings for TMDB, OMDb, Jellyfin, the library, the discover layout and the API key, in the
+  API and the web UI.
+
 ## 0.3.0
 
 - Media types: **Movies**, **Series** and **Software**, each with its own indexer categories and

@@ -1,0 +1,25 @@
+<form id="tmdb-card" class="card settings-card"
+      hx-post="settings/tmdb" hx-target="this" hx-swap="outerHTML">
+  <h2>Metadata <span class="muted">TMDB</span></h2>
+  <label class="field">API key or read access token
+    <input class="input" type="password" name="api_key" autocomplete="off"
+           placeholder="{% if settings.has_api_key %}•••••••• (unchanged){% else %}themoviedb.org → Settings → API{% endif %}">
+  </label>
+  <div class="field-row">
+    <label class="field">Language
+      <input class="input" type="text" name="language" value="{{ settings.language }}" placeholder="en-US">
+    </label>
+    <label class="field">Region
+      <input class="input" type="text" name="region" value="{{ settings.region }}" placeholder="Worldwide" maxlength="2">
+    </label>
+  </div>
+  <label class="field">URL <span class="hint">Empty uses https://api.themoviedb.org</span>
+    <input class="input" type="url" name="url" value="{{ settings.url }}" placeholder="https://api.themoviedb.org">
+  </label>
+  <div class="card-actions">
+    <button class="button" type="button"
+            hx-post="settings/tmdb/test" hx-include="closest form" hx-target="#tmdb-test" hx-swap="outerHTML">Test</button>
+    <button class="button primary" type="submit">Save</button>
+    <span id="tmdb-test"></span>
+  </div>
+</form>

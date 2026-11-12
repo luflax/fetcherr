@@ -5,13 +5,17 @@ use axum_extra::extract::Form;
 use serde::Deserialize;
 
 use super::api_client::{ApiClient, ApiError};
+use super::connections::{ApiKeyCard, JellyfinCard, LibraryCard, OmdbCard, TmdbCard};
+use super::layout_editor::LayoutEditor;
 use super::page::{BaseHref, Layout, Toast, render, render_all};
 use crate::domain::{Category, MediaType};
 use crate::quality::Quality;
+use crate::settings::Layout as DiscoverLayout;
 use crate::settings::{
-    DEFAULT_POLL_INTERVAL_MS, DownloadClientSettingsInput, DownloadClientSettingsView,
+    ApiKeyView, DEFAULT_POLL_INTERVAL_MS, DownloadClientSettingsInput, DownloadClientSettingsView,
     DownloadClientTestResult, IndexerSettingsInput, IndexerSettingsView, IndexerTestResult,
-    MediaTypeSettingsInput, MediaTypeSettingsView,
+    JellyfinSettingsView, LibrarySettings, MediaTypeSettingsInput, MediaTypeSettingsView,
+    OmdbSettingsView, TmdbSettingsView,
 };
 
 pub struct CategoryOption {
@@ -131,7 +135,13 @@ struct SettingsPage {
     layout: Layout,
     indexer: IndexerCard,
     download_client: DownloadClientCard,
+    tmdb: TmdbCard,
+    omdb: OmdbCard,
+    jellyfin: JellyfinCard,
+    api_key: ApiKeyCard,
+    library: LibraryCard,
     media_types: Vec<MediaTypeCard>,
+    layout_editor: LayoutEditor,
 }
 
 pub async fn page(State(api): State<ApiClient>, base: BaseHref) -> Response {
@@ -141,22 +151,48 @@ pub async fn page(State(api): State<ApiClient>, base: BaseHref) -> Response {
         api.get::<Vec<MediaTypeSettingsView>>("/api/settings/media-types"),
         fetch_categories(&api),
     );
-    let (indexer, download_client, media_types) = match (indexer, download_client, media_types) {
-        (Ok(indexer), Ok(download_client), Ok(media_types)) => {
-            (indexer, download_client, media_types)
-        }
-        (Err(err), _, _) | (_, Err(err), _) | (_, _, Err(err)) => return render(Toast::error(err)),
-    };
+    let (tmdb, omdb, jellyfin, library, discover, api_key) = tokio::join!(
+        api.get::<TmdbSettingsView>("/api/settings/tmdb"),
+        api.get::<OmdbSettingsView>("/api/settings/omdb"),
+        api.get::<JellyfinSettingsView>("/api/settings/jellyfin"),
+        api.get::<LibrarySettings>("/api/settings/library"),
+        api.get::<DiscoverLayout>("/api/settings/layout"),
+        api.get::<ApiKeyView>("/api/settings/api-key"),
+    );
+    let loaded = (|| {
+        Ok::<_, super::api_client::ApiError>((
+            indexer?,
+            download_client?,
+            media_types?,
+            tmdb?,
+            omdb?,
+            jellyfin?,
+            library?,
+            discover?,
+            api_key?,
+        ))
+    })();
+    let (indexer, download_client, media_types, tmdb, omdb, jellyfin, library, discover, api_key) =
+        match loaded {
+            Ok(loaded) => loaded,
+            Err(err) => return render(Toast::error(err)),
+        };
     render(SettingsPage {
-        layout: Layout::new(base, "settings"),
+        layout: Layout::load(&api, base, "settings").await,
         indexer: IndexerCard { settings: indexer },
         download_client: DownloadClientCard {
             settings: download_client,
         },
+        tmdb: TmdbCard { settings: tmdb },
+        omdb: OmdbCard { settings: omdb },
+        jellyfin: JellyfinCard { settings: jellyfin },
+        api_key: ApiKeyCard { key: api_key.key },
+        library: LibraryCard::new(library),
         media_types: media_types
             .into_iter()
             .map(|settings| MediaTypeCard::new(settings, &categories))
             .collect(),
+        layout_editor: LayoutEditor::new(&discover),
     })
 }
 
@@ -227,10 +263,10 @@ impl From<MediaTypeForm> for MediaTypeSettingsInput {
 
 #[derive(Template)]
 #[template(path = "partials/test_result.html")]
-struct TestResult {
-    dom_id: &'static str,
-    ok: bool,
-    message: String,
+pub(super) struct TestResult {
+    pub dom_id: &'static str,
+    pub ok: bool,
+    pub message: String,
 }
 
 pub async fn save_indexer(State(api): State<ApiClient>, Form(form): Form<IndexerForm>) -> Response {
@@ -318,7 +354,7 @@ pub async fn save_media_type(
 }
 
 /// Shows the toast but leaves the form untouched so the user can fix the input.
-fn keep_form(toast: Toast) -> Response {
+pub(super) fn keep_form(toast: Toast) -> Response {
     let mut response = render(toast);
     response
         .headers_mut()

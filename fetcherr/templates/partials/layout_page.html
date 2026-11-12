@@ -1,0 +1,14 @@
+<fieldset class="layout-page" data-id="{{ id }}">
+  <div class="layout-row">
+    <input class="input layout-page-name" data-field="name" value="{{ name }}" placeholder="Page name" aria-label="Page name">
+    <span class="layout-buttons">
+      <button type="button" class="icon-button" data-action="up" title="Move page up" aria-label="Move page up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" /></svg></button>
+      <button type="button" class="icon-button" data-action="down" title="Move page down" aria-label="Move page down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
+      <button type="button" class="icon-button danger" data-action="remove" title="Remove page" aria-label="Remove page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
+    </span>
+  </div>
+  <ol class="layout-lists">
+    {% for list in lists %}{{ list|safe }}{% endfor %}
+  </ol>
+  <button type="button" class="button small" data-action="add-list">Add list</button>
+</fieldset>

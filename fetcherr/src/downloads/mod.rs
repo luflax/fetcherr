@@ -7,7 +7,7 @@ use crate::domain::{Download, DownloadId, MediaType, ReleaseSource, StartDownloa
 use crate::error::AppError;
 use crate::integrations::{DOWNLOAD_TAG, Integrations};
 use crate::qbittorrent::AddTorrent;
-use crate::releases::ReleaseCache;
+use crate::releases::{CachedRelease, ReleaseCache};
 use crate::settings::Settings;
 use crate::torrent::TorrentPayload;
 use crate::upstream::UpstreamError;
@@ -25,18 +25,36 @@ pub async fn start(
     let cached = releases
         .get(&request.release_id)
         .ok_or(AppError::ReleaseExpired)?;
-    let qbittorrent = integrations.qbittorrent()?;
     let media_type = request.media_type.or(cached.media_type);
+    add(
+        integrations,
+        settings,
+        &cached,
+        media_type,
+        request.save_path.as_deref(),
+    )
+    .await
+}
 
-    let payload = match cached.source {
-        ReleaseSource::Magnet(uri) => TorrentPayload::Magnet(uri),
-        ReleaseSource::TorrentUrl(url) => integrations.prowlarr()?.fetch_torrent(&url).await?,
+/// Adds a cached release to qBittorrent, tagged as Fetcherr's. Adding one that is already
+/// there succeeds with the same id.
+pub async fn add(
+    integrations: &Integrations,
+    settings: &Settings,
+    release: &CachedRelease,
+    media_type: Option<MediaType>,
+    requested_save_path: Option<&str>,
+) -> Result<DownloadId, AppError> {
+    let qbittorrent = integrations.qbittorrent()?;
+    let payload = match &release.source {
+        ReleaseSource::Magnet(uri) => TorrentPayload::Magnet(uri.clone()),
+        ReleaseSource::TorrentUrl(url) => integrations.prowlarr()?.fetch_torrent(url).await?,
     };
     let id = payload
         .info_hash()
         .map_err(|reason| UpstreamError::new("Prowlarr", format!("unusable torrent: {reason}")))?;
 
-    let save_path = save_path(settings, media_type, request.save_path.as_deref());
+    let save_path = save_path(settings, media_type, requested_save_path);
     let added = qbittorrent
         .add(&AddTorrent {
             payload: &payload,
